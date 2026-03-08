@@ -45,7 +45,7 @@ function readBMP(fileName)
 	local wCounter = 0
 	local hCounter = 0
 	local fileSize = 0
-	local sprite = {}
+	local indexPallet = {}
 	
 	--read file header info
 	while true  do
@@ -75,8 +75,10 @@ function readBMP(fileName)
 		index2 = index2 + 1 
 		if index2 == 3 then 
 			myrtle.setTextColor("0x"..hexCode)
+			table.insert(indexPallet, hexCode)
 		end
 		if index2 == 4 then
+			
 			myrtle.println(hexCode)
 			hexCode = ""
 			index2 = 0
@@ -97,11 +99,11 @@ function readBMP(fileName)
 		  if index2 == 1 then 
 			--split the hex code ot read bit by bit. lua only can read as small as 1 byte at a time.
 			if hexCode:sub(1,1) ~= "9" then
-				myrtle.drawPixel(width+wCounter,height-hCounter,"0x"..hexCode:sub(1,1))
+				myrtle.drawPixel(width+wCounter,height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(1,1))+1])
 			end
 			
 			if hexCode:sub(2,2) ~= "9" then
-				myrtle.drawPixel(width+(wCounter+1),height-hCounter,"0x"..hexCode:sub(2,2))
+				myrtle.drawPixel(width+(wCounter+1),height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(2,2))+1])
 			end
 			
 			index2 = 0
@@ -136,7 +138,7 @@ function readBMP(fileName)
 	io.close(f)
 	
 	
-	myrtle.print("successfully read bmp")
+	--myrtle.print("successfully read bmp")
 end
 
 --1 time execution load function (you could rerun this function to update the code during runtime on the C++)

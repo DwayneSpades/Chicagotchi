@@ -78,6 +78,7 @@ int lua_drawCircle(lua_State* L)
 int lua_convertHex(lua_State* L)
 {
   const char* stuff = lua_tostring(L, 1);
+  //int bitSize = lua_tostring(L, 1);
   int16_t num = stoi(stuff, nullptr, 16);
   //tft.println(stuff);
   //tft.println(num);
