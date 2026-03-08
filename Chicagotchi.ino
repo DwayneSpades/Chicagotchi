@@ -189,7 +189,6 @@ void runScript(const char* fileName)
 
 void setup(void) {
   Serial.begin(115200);
-  Serial.print(F("Hello! Feather TFT Test"));
 
   // turn on backlite
   pinMode(TFT_BACKLITE, OUTPUT);

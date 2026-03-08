@@ -26,7 +26,7 @@ function testGameObject:draw()
 	myrtle.drawCircle(self.position.x,self.position.y,self.radius)
 end
 
-function readBMP(fileName)
+function readBMP(fileName, pallet)
 	--myrtle.println("reading bmp")
 	local f = io.open("/littlefs/"..fileName, "rb")
 	
@@ -45,7 +45,8 @@ function readBMP(fileName)
 	local wCounter = 0
 	local hCounter = 0
 	local fileSize = 0
-	local indexPallet = {}
+	local indexPallet = pallet or {}
+	local palletIndex = 0
 	
 	--read file header info
 	while true  do
@@ -74,12 +75,16 @@ function readBMP(fileName)
 		
 		index2 = index2 + 1 
 		if index2 == 3 then 
-			myrtle.setTextColor("0x"..hexCode)
-			table.insert(indexPallet, hexCode)
+			if #indexPallet ~= 16 then
+				table.insert(indexPallet, hexCode)
+			end
+			palletIndex = palletIndex + 1
+			myrtle.setTextColor("0x"..indexPallet[palletIndex])
+			
 		end
 		if index2 == 4 then
 			
-			myrtle.println(hexCode)
+			myrtle.println("0x"..indexPallet[palletIndex])
 			hexCode = ""
 			index2 = 0
 		end
@@ -99,11 +104,11 @@ function readBMP(fileName)
 		  if index2 == 1 then 
 			--split the hex code ot read bit by bit. lua only can read as small as 1 byte at a time.
 			if hexCode:sub(1,1) ~= "9" then
-				myrtle.drawPixel(width+wCounter,height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(1,1))+1])
+				myrtle.drawPixel(100+wCounter,height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(1,1))+1])
 			end
 			
 			if hexCode:sub(2,2) ~= "9" then
-				myrtle.drawPixel(width+(wCounter+1),height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(2,2))+1])
+				myrtle.drawPixel(100+(wCounter+1),height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(2,2))+1])
 			end
 			
 			index2 = 0
@@ -145,6 +150,25 @@ end
 function myrtle_load()	
 	--create test game object to demonstrate easy the to use enviroment for writing game logic 
 	spriteObject = testGameObject.new()
+	local myPallet =
+	{
+		"fbf9",
+		"9014",
+		"df62",
+		"16ff",
+		"f9a6",
+		"fc84",
+		"56c0",
+		"333c",
+		"6004",
+		"ea60",
+		"042a",
+		"098c",
+		"ffff",
+		"9578",
+		"5a32",
+		"0865"
+	}
 	readBMP("Gato_Roboto.bmp")
 end
 
