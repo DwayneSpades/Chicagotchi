@@ -79,8 +79,8 @@ int lua_convertHex(lua_State* L)
 {
   const char* stuff = lua_tostring(L, 1);
   int16_t num = stoi(stuff, nullptr, 16);
-  tft.println(stuff);
-  tft.println(num);
+  //tft.println(stuff);
+  //tft.println(num);
   lua_pushnumber(L,num);
   return 1;
 }
@@ -245,7 +245,7 @@ void setup(void) {
   lua_getglobal(L, "myrtle_load");
   if (lua_isfunction(L, -1))
   {
-    tft.println("ran myrtle load successfully");
+    //tft.println("ran myrtle load successfully");
     lua_pcall(L, 0, 0, 0);
   }
   

@@ -26,14 +26,11 @@ function testGameObject:draw()
 	myrtle.drawCircle(self.position.x,self.position.y,self.radius)
 end
 
---1 time execution load function (you could rerun this function to update the code during runtime on the C++)
-function myrtle_load()	
-	--create test game object to demonstrate easy the to use enviroment for writing game logic 
-	spriteObject = testGameObject.new()
-	myrtle.println("reading bmp")
-	local f = io.open("/littlefs/Gato_Roboto.bmp", "rb")
+function readBMP(fileName)
+	--myrtle.println("reading bmp")
+	local f = io.open("/littlefs/"..fileName, "rb")
 	
-	myrtle.println("")
+	--myrtle.println("")
     local block = 1
 	--bmp header is 54 bytses. 118 byte header for 4bpp format
 	--bmp width and height must be a multiple of 4 to prevent padding in the file so it can be read back simpler
@@ -48,30 +45,47 @@ function myrtle_load()
 	local wCounter = 0
 	local hCounter = 0
 	local fileSize = 0
+	local sprite = {}
 	
-    while true  do
+	--read file header info
+	while true  do
       local bytes = f:read(block)
       if not bytes then break end
-	  --[[if(index > 1 and index < 6)then
-		for b in string.gfind(bytes, ".") do
-			fileHexCode = fileHexCode..string.format("%02X", string.byte(b))
-		end
-	  elseif(index == 6)then
-		fileSize = tonumber(fileHexCode)
-		myrtle.println("file size: "..fileSize)
-	  end]]
+	  
 	  if(index == 18)then
 		for b in string.gfind(bytes, ".") do
 			width = myrtle.convertHex(string.format("%02X", string.byte(b)))
-			myrtle.println("width px: "..width)
+			--myrtle.println("width px: "..width)
 			
 		end
 	  end
 	  if(index == 22)then
 		for b in string.gfind(bytes, ".") do
 			height = myrtle.convertHex(string.format("%02X", string.byte(b)))
-			myrtle.println("height px: "..height)
+			--myrtle.println("height px: "..height)
 		end
+	  end
+	  
+	  --TODO: add read for pixel pallet indexs here
+	  if(index >= 54 and index < 118)then
+		for b in string.gfind(bytes, ".") do
+			hexCode = hexCode..string.format("%02X", string.byte(b))
+		end
+		
+		index2 = index2 + 1 
+		if index2 == 3 then 
+			myrtle.setTextColor("0x"..hexCode)
+		end
+		if index2 == 4 then
+			myrtle.println(hexCode)
+			hexCode = ""
+			index2 = 0
+		end
+	  end
+	  
+	  if(index == 118)then
+		hexCode = ""
+		index2 = 0
 	  end
 	  
 	  if(index > 118 ) then
@@ -81,21 +95,32 @@ function myrtle_load()
 		  end
 		  index2 = index2 + 1 
 		  if index2 == 1 then 
-			myrtle.drawPixel(64+wCounter,64+hCounter,"0x"..hexCode:sub(1,1))
-			myrtle.drawPixel(64+(wCounter+1),64+hCounter,"0x"..hexCode:sub(2,2))
+			--split the hex code ot read bit by bit. lua only can read as small as 1 byte at a time.
+			if hexCode:sub(1,1) ~= "9" then
+				myrtle.drawPixel(width+wCounter,height-hCounter,"0x"..hexCode:sub(1,1))
+			end
+			
+			if hexCode:sub(2,2) ~= "9" then
+				myrtle.drawPixel(width+(wCounter+1),height-hCounter,"0x"..hexCode:sub(2,2))
+			end
+			
 			index2 = 0
 			index3 = index3 + 2
 			wCounter = wCounter + 2 
-			myrtle.setTextColor("0x"..hexCode)
+			--myrtle.setTextColor("0x"..hexCode)
 			
-			myrtle.print(hexCode:sub(1,1))
-			myrtle.print(" ")
-			myrtle.print(hexCode:sub(1,1))
-			myrtle.print(" ")
+			--printing out the bits on screen
+			--myrtle.print(hexCode:sub(1,1))
+			--myrtle.print(" ")
+			--myrtle.print(hexCode:sub(2,2))
+			--myrtle.print(" ")
 			
+			--we've reached a row read.
+			--read the next row of pixels.
+			--later we can devide this by  a cellsize for reading animations.
 			if index3 == width then
-				myrtle.print("\n")
 				
+				--myrtle.print("\n")
 				--draw a pixel at the curent whCounter position
 				hCounter = hCounter + 1
 				wCounter = 0
@@ -109,7 +134,16 @@ function myrtle_load()
     end
 	
 	io.close(f)
+	
+	
 	myrtle.print("successfully read bmp")
+end
+
+--1 time execution load function (you could rerun this function to update the code during runtime on the C++)
+function myrtle_load()	
+	--create test game object to demonstrate easy the to use enviroment for writing game logic 
+	spriteObject = testGameObject.new()
+	readBMP("Gato_Roboto.bmp")
 end
 
 sinDrive=0
