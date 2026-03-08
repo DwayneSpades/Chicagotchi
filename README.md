@@ -8,7 +8,7 @@ Chicago Tomogachi project running on the Myrtle framework.
 - C++ side is for providing access to gfx drawing funcitons from lua scripts with wrapper functions. lua side is for programming the whole game. 
 - I highly reccommend not putting any game code on the c++ side at all. 
 - The reaseon for that is to minimize needing to transfer and access  data from lua to c++ via the lua stack with more complex data structures you would have to track through the stack. 
-- IMO it's unneccessary casue the whole game's code can be written in lua
+- IMO it's unneccessary cause the whole game's code can be written entirely in lua
 
 [Notes on Optimization and Lua Memory use with the Garbage Collector]
 
