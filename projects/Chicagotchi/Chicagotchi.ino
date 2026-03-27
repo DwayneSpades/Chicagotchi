@@ -109,18 +109,100 @@ int lua_convertHex(lua_State* L)
   lua_pushnumber(L,num);
   return 1;
 }
-//I'm thining we can store these drawn pixels once to some canvas buffer and just display that
-//
-int lua_drawPixel(lua_State* L)
+
+int lua_sendBitData(lua_State* L)
 {
-	int16_t x = (int16_t)lua_tonumber(L, 1);
-  int16_t y = (int16_t)lua_tonumber(L, 2);
-  const char* stuff = lua_tostring(L, 3);
-  unsigned int num = stoi(stuff, nullptr, 16);
+	//arecieves: x,y,"24bit color string"
+  //going to have to store the 
+	//return the values reutrned in this stack
+  return 1;
+}
+
+//I'm thining we can store these drawn pixels once to some canvas buffer and just display that
+class pixel 
+{
+public:
+	pixel() = default;
+	pixel(int16_t x, int16_t y, uint16_t color);
+	pixel operator = (const pixel &ptr);
+	~pixel()=default;
+
+	//position
+	int16_t x = 0;
+	int16_t y = 0;
+  //16bit color code
+	uint16_t color = 0x0000;
+private:
+};
+
+pixel::pixel(int16_t _x, int16_t _y, uint16_t _color)
+{
+  x = _x;
+  y = _y;
+  color = _color;
+}
+
+//make an array of pixels to store in the sprite Storage
+
+unordered_map<string,pixel*> sprites;
+
+int lua_createSprite(lua_State* L)
+{
+  const char* name = lua_tostring(L, 1);
+  int len = (int)lua_tonumber(L, 2);
+
+  pixel *pixelArray = new pixel[len];
+
+  sprites[name] = pixelArray;
+  
+  return 1;
+}
+
+int lua_loadPixel(lua_State* L)
+{
+  const char* name = lua_tostring(L, 1);
+  int index = (int)lua_tonumber(L, 2);
+	int16_t x = (int16_t)lua_tonumber(L, 3);
+  int16_t y = (int16_t)lua_tonumber(L, 4);
+
+  const char* stuff = lua_tostring(L, 5);
+  uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
 
 	//create the drawable and push into the map
-  tft.drawPixel(x, y, num); //.drawCircle(x, y, r, ST77XX_WHITE);
+  sprites[name][index].x = x;
+  sprites[name][index].y = y;
+  sprites[name][index].color = color;
+  
+  
+   //.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
+  return 1;
+}
+
+uint16_t *_screenBuffer = canvas.getBuffer();
+int lua_drawSprite(lua_State* L)
+{
+  const char* name = lua_tostring(L, 1);
+  int len = (int)lua_tonumber(L, 2);
+  int16_t x = (int16_t)lua_tonumber(L, 3);
+  int16_t y = (int16_t)lua_tonumber(L, 4);
+  
+  
+
+  for(int i=0; i < len; i++)
+  {
+    int16_t posX = (sprites[name][i].x + x);
+    int16_t posY = (sprites[name][i].y + y);
+
+    //put pixels on screen only
+    //what if we only replace the pixels we need too????
+    if ((posX > 0) && (posY > 0) && (posX <= canvas.width()) && (posY <= canvas.height()))
+    { 
+      _screenBuffer[ posX + posY * canvas.width()] = sprites[name][i].color;
+    }
+    //canvas.drawPixel(,, sprites[name][i].color);
+  }
+
   return 1;
 }
 
@@ -129,7 +211,7 @@ int lua_println(lua_State* L)
 	const char* stuff = lua_tostring(L, 1);
 
 	//create the drawable and push into the map
-  tft.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
+  canvas.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
   return 1;
 }
@@ -151,7 +233,8 @@ int lua_print(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
 	//create the drawable and push into the map
-  tft.print(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
   return 1;
 }
@@ -248,7 +331,12 @@ void setup(void) {
 
   luaL_openlibs(L);
   lua_register(L, "drawCircle", lua_drawCircle);
-  lua_register(L, "drawPixel", lua_drawPixel);
+  lua_register(L, "createSprite", lua_createSprite);
+  lua_register(L, "loadPixel", lua_loadPixel);
+  lua_register(L, "drawSprite", lua_drawSprite);
+
+  
+
   lua_register(L, "convertHex", lua_convertHex);
   lua_register(L, "myrtleRequire", lua_require);
   lua_register(L, "myrtlePrintln", lua_println);
@@ -276,7 +364,7 @@ void setup(void) {
   }
   
   
-  delay(16000);
+  //delay(4000);
 
   tft.println("ran Game Load successfully");
   //tft.drawCircle(32, 32, 32, ST77XX_BLUE);
