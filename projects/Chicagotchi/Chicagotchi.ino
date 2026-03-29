@@ -31,7 +31,7 @@
 #include <Adafruit_ST77xx.h>
 
 #include <stdio.h>
-
+#include <stddef.h>
 
 /**************************************************************************
   This is a library for several Adafruit displays based on ST77* drivers.
@@ -215,6 +215,30 @@ int lua_drawBitmap(lua_State* L)
   return 1;
 }
 
+void custom_memcpy(void* dest, const void* src, int len)
+{
+    char* d = static_cast<char*>(dest);
+    const char* s = static_cast<const char*>(src);
+    
+    
+    int iterator = 0;
+    while (len--)
+    {
+        if (static_cast<uint16_t>(s[0]) != 234 && static_cast<uint16_t>(s[0]) != 96)
+        {
+                //canvas.println(static_cast<uint16_t>(s[0]));
+          *d++ = *s++;
+        }
+        else
+        {
+          *d++;
+          *s++;
+        }
+    
+        iterator += 1;
+    }
+
+}
 
 int lua_drawSprite(lua_State* L)
 {
@@ -243,11 +267,11 @@ int lua_drawSprite(lua_State* L)
     */
     if ((y+i) < canvas.height() && (y+i) >= 0 && (x+w > 0) && (x < canvas.width()))
       if(w + x >=  canvas.width())
-        memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) *  (w - ((x+(w))- canvas.width())));
+        custom_memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) *  (w - ((x+(w))- canvas.width())));
       else if(x <= 0)
-        memcpy(_screenBuffer + ( (y+i) * canvas.width() + 0), sprites[name]->pixels + ((0+i) * w - (x-1)), sizeof(uint16_t) * (w + x));
+        custom_memcpy(_screenBuffer + ( (y+i) * canvas.width() + 0), sprites[name]->pixels + ((0+i) * w - (x-1)), sizeof(uint16_t) * (w + x));
       else
-        memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) * w);
+        custom_memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) * w);
   }
 
   return 1;

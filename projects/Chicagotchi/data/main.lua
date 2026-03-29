@@ -235,7 +235,7 @@ function drawDrawable(filename,pos)
 	--I want to pass the table to CPP to draw the bit map straight up
 	local position = pos or vector2.new()
 	
-	myrtle.drawSprite(filename,spriteSize,position.x,position.y)
+	myrtle.drawBitmap(filename,spriteSize,position.x,position.y)
 end
 
 --1 time execution load function (you could rerun this function to update the code during runtime on the C++)
@@ -338,6 +338,7 @@ function myrtle_draw()
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
+
 end
 
 
