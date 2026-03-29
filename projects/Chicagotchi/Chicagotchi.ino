@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 
+
 /**************************************************************************
   This is a library for several Adafruit displays based on ST77* drivers.
 
@@ -77,6 +78,9 @@
 
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+uint32_t engineTime = 0;
+uint32_t previousTime = 0;
+uint32_t deltaTime = 0;
 
 float p = 3.1415926;
 GFXcanvas16 canvas(240, 135);
@@ -119,41 +123,51 @@ int lua_sendBitData(lua_State* L)
 }
 
 //I'm thining we can store these drawn pixels once to some canvas buffer and just display that
-class pixel 
+class sprite 
 {
 public:
-	pixel() = default;
-	pixel(int16_t x, int16_t y, uint16_t color);
-	pixel operator = (const pixel &ptr);
-	~pixel()=default;
+	sprite() = default;
+	sprite(int w, int h, int len);
+	sprite operator = (const sprite &ptr);
+	~sprite()=default;
 
 	//position
 	int16_t x = 0;
 	int16_t y = 0;
+  int width = 0;
+	int height = 0;
+  
   //16bit color code
-	uint16_t color = 0x0000;
+	uint16_t *pixels;
+
 private:
 };
 
-pixel::pixel(int16_t _x, int16_t _y, uint16_t _color)
+sprite::sprite(int _w, int _h, int len)
 {
-  x = _x;
-  y = _y;
-  color = _color;
+  width = _w;
+  height = _h;
+
+  pixels = new uint16_t[len];
 }
 
 //make an array of pixels to store in the sprite Storage
+//store rows of pixels instead
+//use memcopy ot copy the color codes in chunks
+//less chunks to loop through by rows....
 
-unordered_map<string,pixel*> sprites;
+
+//unordered_map<string,sprite*> sprites;
+unordered_map<string,sprite*> sprites;
 
 int lua_createSprite(lua_State* L)
 {
   const char* name = lua_tostring(L, 1);
   int len = (int)lua_tonumber(L, 2);
+  int w = (int)lua_tonumber(L, 3);
+  int h = (int)lua_tonumber(L, 4);
 
-  pixel *pixelArray = new pixel[len];
-
-  sprites[name] = pixelArray;
+  sprites[name] = new sprite(w,h,len);
   
   return 1;
 }
@@ -162,16 +176,12 @@ int lua_loadPixel(lua_State* L)
 {
   const char* name = lua_tostring(L, 1);
   int index = (int)lua_tonumber(L, 2);
-	int16_t x = (int16_t)lua_tonumber(L, 3);
-  int16_t y = (int16_t)lua_tonumber(L, 4);
 
-  const char* stuff = lua_tostring(L, 5);
+  const char* stuff = lua_tostring(L, 3);
   uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
 
 	//create the drawable and push into the map
-  sprites[name][index].x = x;
-  sprites[name][index].y = y;
-  sprites[name][index].color = color;
+  sprites[name]->pixels[index] = color;
   
   
    //.drawCircle(x, y, r, ST77XX_WHITE);
@@ -180,6 +190,32 @@ int lua_loadPixel(lua_State* L)
 }
 
 uint16_t *_screenBuffer = canvas.getBuffer();
+void customDrawRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap,
+                                 int16_t w, int16_t h) {
+  for (int16_t j = 0; j < h; j++, y++) {
+    for (int16_t i = 0; i < w; i++) {
+      if (bitmap[j * w + i] != 0xea60)
+      {
+        canvas.writePixel(x + i,y, bitmap[j * w + i]);
+      }
+    }
+  }
+}
+
+
+int lua_drawBitmap(lua_State* L)
+{
+  const char* name = lua_tostring(L, 1);
+  int len = (int)lua_tonumber(L, 2);
+  int16_t x = (int16_t)lua_tonumber(L, 3);
+  int16_t y = (int16_t)lua_tonumber(L, 4);
+  
+  //memcpy(_screenBuffer + (y * canvas.width() + x) + 1, sprites[name], i * (sizeof(unit16_t) * 65));
+  customDrawRGBBitmap(x,y,sprites[name]->pixels,64,64);
+  return 1;
+}
+
+
 int lua_drawSprite(lua_State* L)
 {
   const char* name = lua_tostring(L, 1);
@@ -187,24 +223,36 @@ int lua_drawSprite(lua_State* L)
   int16_t x = (int16_t)lua_tonumber(L, 3);
   int16_t y = (int16_t)lua_tonumber(L, 4);
   
+  int16_t w = sprites[name]->width;
+  int16_t h = sprites[name]->height;
   
 
-  for(int i=0; i < len; i++)
+  for(int i=0; i < h; i++)
   {
-    int16_t posX = (sprites[name][i].x + x);
-    int16_t posY = (sprites[name][i].y + y);
+    
+    //modify the starting point and width of the line of the pixel line segment to account for x-axis clipping
+    //modify the line segment to copy the screenbuffer pixels over where the transparencies should be in the line
+    /*
+    for(int j=0; j < w; j++)
+    {
+      //overwrite the transparent pixels wiht whatever is in t he screen buffer already
+      if (sprites[name]->pixels[((0+i) * w + j)] == 0xea60)
+        sprites[name]->pixels[((0+i) * w + j)] = _screenBuffer[( (y+i) * canvas.width() + x + j)];
 
-    //put pixels on screen only
-    //what if we only replace the pixels we need too????
-    if ((posX > 0) && (posY > 0) && (posX <= canvas.width()) && (posY <= canvas.height()))
-    { 
-      _screenBuffer[ posX + posY * canvas.width()] = sprites[name][i].color;
     }
-    //canvas.drawPixel(,, sprites[name][i].color);
+    */
+    if ((y+i) < canvas.height() && (y+i) >= 0 && (x+w > 0) && (x < canvas.width()))
+      if(w + x >=  canvas.width())
+        memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) *  (w - ((x+(w))- canvas.width())));
+      else if(x <= 0)
+        memcpy(_screenBuffer + ( (y+i) * canvas.width() + 0), sprites[name]->pixels + ((0+i) * w - (x-1)), sizeof(uint16_t) * (w + x));
+      else
+        memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) * w);
   }
 
   return 1;
 }
+
 
 int lua_println(lua_State* L)
 {
@@ -334,6 +382,7 @@ void setup(void) {
   lua_register(L, "createSprite", lua_createSprite);
   lua_register(L, "loadPixel", lua_loadPixel);
   lua_register(L, "drawSprite", lua_drawSprite);
+  lua_register(L, "drawBitmap", lua_drawBitmap);
 
   
 
@@ -373,13 +422,20 @@ void setup(void) {
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
 
-  
+  engineTime = millis();
+  previousTime = millis();
 }
 
 void loop() {
+  previousTime = engineTime;
+  
+
   //canvas lets the draw to screen be not have flicker
   canvas.fillScreen(0);
   canvas.setCursor(0, 0);
+
+  
+  
 
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
@@ -393,5 +449,12 @@ void loop() {
   {
     lua_pcall(L, 0, 0, 0);
   }
+
+  engineTime = millis();
+  deltaTime = engineTime - previousTime;
+
+  canvas.println("Frame Time (ms): ");
+  canvas.println(deltaTime);
+
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
 }

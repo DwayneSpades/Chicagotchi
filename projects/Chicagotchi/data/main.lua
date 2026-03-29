@@ -4,6 +4,7 @@ myrtle.drawCircle = drawCircle
 myrtle.createSprite = createSprite
 myrtle.loadPixel = loadPixel
 myrtle.drawSprite = drawSprite
+myrtle.drawBitmap = drawBitmap
 
 myrtle.convertHex = convertHex
 
@@ -174,12 +175,12 @@ function readBMP(fileName, pallet)
 		  if index2 == 1 then 
 			--split the hex code ot read bit by bit. lua only can read as small as 1 byte at a time.
 			--store the bits hex codes into a single array
-			if hexCode:sub(1,1) ~= "9" then
+			if hexCode:sub(1,1) then
 				table.insert(bitmap,pixelObject.new(vector2.new(wCounter,height-hCounter),"0x"..indexPallet[myrtle.convertHex(hexCode:sub(1,1))+1]))
 				--myrtle.drawPixel(wCounter,height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(1,1))+1])
 			end
 			
-			if hexCode:sub(2,2) ~= "9" then
+			if hexCode:sub(2,2) then
 				table.insert(bitmap,pixelObject.new(vector2.new((wCounter+1),height-hCounter),"0x"..indexPallet[myrtle.convertHex(hexCode:sub(2,2))+1]))
 				--myrtle.drawPixel((wCounter+1),height-hCounter,"0x"..indexPallet[myrtle.convertHex(hexCode:sub(2,2))+1])
 			end
@@ -216,13 +217,15 @@ function readBMP(fileName, pallet)
 	io.close(f)
 	
 	--create sprite object to hold the pixel data on the CPP side in the sprite dictionary
-	myrtle.createSprite(fileName,#bitmap)
+	myrtle.createSprite(fileName,#bitmap,width,height)
+	index=nil
 	--load bitmap pixel data to cpp side here
-	for i,v in ipairs(bitmap)do
-		myrtle.loadPixel(fileName, i, v.position.x, v.position.y, v.color)
+	for i=1,#bitmap do
+		local index = (#bitmap+1) - i
+		myrtle.loadPixel(fileName, i-1, bitmap[index].color)
 	end
 	
-	--myrtle.print("successfully read bmp")
+	myrtle.print("successfully read bmp\n")
 	
 	return bitmap
 	
@@ -251,7 +254,7 @@ function myrtle_load()
 		"56c0",
 		"333c",
 		"6004",
-		"ea60",
+		"ea60", --the transparent color
 		"042a",
 		"098c",
 		"ffff",
@@ -289,20 +292,52 @@ function myrtle_draw()
 	spriteObject:draw()
 	--myrtle.drawCircle(32,32,32)
 	--drawSprite(testSprite,spriteObject.position+vector2.new(0,0))
-	myrtle.println('Memory actually used (in kB): ' .. collectgarbage('count'))
+	myrtle.println('Memory actually used (in kB): '..string.format("%i",collectgarbage('count')) )
 	
 	--drawBitmap("testBMP",vector2.new(50,50))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,0))
+	
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-90,0))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,0))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,0))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,0))
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
+	
+	
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-90,0))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,0))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,0))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,0))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
+	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
 end
 
 
