@@ -24,6 +24,7 @@
 #include <lundump.h>
 #include <lvm.h>
 #include <lzio.h>
+#include "run.h"
 
 #include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
@@ -122,6 +123,9 @@ int lua_sendBitData(lua_State* L)
   return 1;
 }
 
+int gatoRunCount = 0;
+run gatoRuns[256];
+
 //I'm thining we can store these drawn pixels once to some canvas buffer and just display that
 class sprite 
 {
@@ -188,6 +192,8 @@ int lua_loadPixel(lua_State* L)
 	//return the values reutrned in this stack
   return 1;
 }
+
+uint16_t _genBuffer[240*135];
 
 uint16_t *_screenBuffer = canvas.getBuffer();
 void customDrawRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap,
@@ -459,16 +465,78 @@ void setup(void) {
     gatoColor[i] = sprites[name]->pixels[i] == 0xea60 ? 0x00 : sprites[name]->pixels[i];
   }
 
-  int b = 1 << 7;
-  int bi = 0;
-  for (int i = 0; i < 64*64; i++){
-    gatoOpaque[bi] |= gatoColor[i] == 0xea60 ? 0x00 : b;
-    if (b == 1) {
-      b = 1 << 7;
-      bi++;
-    } else {
-      b = b >> 1;
+  setupGatoRuns();
+}
+
+void setupGatoRuns() {
+  
+  memset(gatoRuns, 0x00, sizeof(run) * 256);
+
+  int w = 64;
+  int h = 64;
+  bool inRun = false;
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      int i = x + y * w;
+      
+      if (inRun) {
+        // run until we hit a transparent pixel
+        if (gatoColor[i] != 0xEA60) {
+          gatoRuns[gatoRunCount].w++;
+          gatoRuns[gatoRunCount].pixels[i] = gatoColor[i];
+        } else {
+          inRun = false;
+          gatoRunCount++;
+        }
+      } else {
+        // start a run
+        if (gatoColor[i] != 0xEA60) {
+          inRun = true;
+          gatoRuns[gatoRunCount].x = x;
+          gatoRuns[gatoRunCount].y = y;
+          gatoRuns[gatoRunCount].w++;
+          gatoRuns[gatoRunCount].pixels[i] = gatoColor[i];
+        }
+      }
     }
+
+    // end of a row -- end current run, if any
+    if (inRun) {
+      gatoRunCount++;
+      inRun = false;
+    }
+  }
+}
+
+void clearBuffer(uint16_t* buffer, size_t size, uint16_t color){
+  memset(buffer, color, size * sizeof(uint16_t));
+}
+
+void clampToScreen(int& x, int& y) {
+  x = x < 0 ? 0 : (x >= 240 ? 239 : x);
+  y = y < 0 ? 0 : (y >= 135 ? 134 : y);
+}
+
+void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int rh, uint16_t* pixels) {
+  // clampToScreen(minX, minY);
+  // clampToScreen(maxX, maxY);
+  for (int y = 0; y < sh; y++) {
+    int offset = y * sw;
+    int rectOffset = (y * rw) + (sx + sy * rw);
+    memcpy(buffer + rectOffset, pixels + offset, sizeof(uint16_t) * sw);
+  }
+}
+
+void updateBuffer(uint16_t* buffer, int minX, int minY, int maxX, int maxY, run* runs, int runCount) {
+  clampToScreen(minX, minY);
+  clampToScreen(maxX, maxY);
+  
+  int w = maxX - minX;
+  if (w <= 0) return;
+
+  for (int i = 0; i < runCount; i++) {
+    int offset = runs[i].x + runs[i].y * w;
+    memcpy(buffer + offset, runs[runCount].pixels, sizeof(uint16_t) * runs[runCount].w);
   }
 }
 
@@ -516,14 +584,20 @@ void loop() {
   int rectX = px < opx ? px : opx;
   int rectY = py < opy ? py : opy;
 
-  int rectW = px > opx ? px : opx + 64 - rectX;
-  int rectH = py > opy ? py : opy + 64 - rectY;
+  int rectW = (px > opx ? px : opx) + 64 - rectX;
+  int rectH = (py > opy ? py : opy) + 64 - rectY;
+
+  //updateBuffer(_genBuffer, rectX, rectY, rectX+rectW, rectY+rectH, px, py, 64, sprites[name]->pixels);
+  clearBuffer(_genBuffer, 240 * 135, 0x0000);
+  updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, sprites[name]->pixels);
 
   // 1 draw is still 26ms -- 10 is 31ms
   // around 0.5ms / sprite
+  /*
   for (int i = 0; i < 1; i++){
     customDrawRGBBitmap(px + i*5, py + i*5, sprites[name]->pixels,64,64);
   }
+    */
 
  // canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
@@ -540,6 +614,8 @@ void loop() {
   canvas.println("CONFIG_IDF_TARGET_ESP32S3");
   #endif
 
+  tft.drawRGBBitmap(rectX, rectY, _genBuffer, rectW, rectH);
+  // tft.drawRect(rectX, rectY, rectW, rectH, 0xff00);
   // ouch
   // tft.drawRGBBitmap(px, py, gatoColor, gatoOpaque, 64, 64);
   /*
@@ -549,7 +625,7 @@ void loop() {
   */
 
   // doing this and print deltatime takes 25.5ms
-  tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  //tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
 
   // just doing this and print deltatime takes 6ms
   // tft.drawRGBBitmap(0, 0, canvas.getBuffer(),canvas.width(), 32);
