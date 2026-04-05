@@ -367,6 +367,13 @@ void runScript(const char* fileName)
 }
 
 
+// int clearOffset = 0;
+int px = 0;
+int py = 0;
+const char * name = "Gato_Roboto.bmp";
+uint16_t gatoColor[64*64];
+uint8_t gatoOpaque[64*64];
+
 void setup(void) {
   Serial.begin(115200);
 
@@ -436,7 +443,6 @@ void setup(void) {
     lua_pcall(L, 0, 0, 0);
   }
   
-  
   //delay(4000);
 
   tft.println("ran Game Load successfully");
@@ -448,6 +454,22 @@ void setup(void) {
 
   engineTime = millis();
   previousTime = millis();
+
+  for (int i = 0; i < 64*64; i++) {
+    gatoColor[i] = sprites[name]->pixels[i] == 0xea60 ? 0x00 : sprites[name]->pixels[i];
+  }
+
+  int b = 1 << 7;
+  int bi = 0;
+  for (int i = 0; i < 64*64; i++){
+    gatoOpaque[bi] |= gatoColor[i] == 0xea60 ? 0x00 : b;
+    if (b == 1) {
+      b = 1 << 7;
+      bi++;
+    } else {
+      b = b >> 1;
+    }
+  }
 }
 
 void clearScreen(uint16_t color) {
@@ -458,17 +480,16 @@ void clearLine(int offset, uint16_t color) {
   memset(_screenBuffer + (240 * offset), color, 240 * sizeof(uint16_t));
 }
 
-// int clearOffset = 0;
-
 void loop() {
   previousTime = engineTime;
-  
   
   //canvas lets the draw to screen be not have flicker
   // clearLine(clearOffset, 0xf000);
   // clearOffset = (clearOffset + 1) % (135);
-  clearScreen(0x0000);
+  // clearScreen(0x0000);
+  canvas.fillScreen(0);
   canvas.setCursor(0, 0);
+  /*
 
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
@@ -482,13 +503,55 @@ void loop() {
   {
     lua_pcall(L, 0, 0, 0);
   }
-
+*/
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
-  canvas.println("Frame Time (ms): ");
+  float spinTime = engineTime * 0.02f;
+  int opx = px;
+  int opy = py;
+  px = -32 + 120 + sinf(spinTime) * 40;
+  py = -32 + 65 + cosf(spinTime) * 40;
+
+  int rectX = px < opx ? px : opx;
+  int rectY = py < opy ? py : opy;
+
+  int rectW = px > opx ? px : opx + 64 - rectX;
+  int rectH = py > opy ? py : opy + 64 - rectY;
+
+  // 1 draw is still 26ms -- 10 is 31ms
+  // around 0.5ms / sprite
+  for (int i = 0; i < 1; i++){
+    customDrawRGBBitmap(px + i*5, py + i*5, sprites[name]->pixels,64,64);
+  }
+
+ // canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
 
+  #if defined(ESP32)
+  canvas.println("ESP32");
+  #endif
+
+  #if defined(CONFIG_IDF_TARGET_ESP32)
+  canvas.println("CONFIG_IDF_TARGET_ESP32");
+  #endif
+  
+  #if defined(CONFIG_IDF_TARGET_ESP32S3)
+  canvas.println("CONFIG_IDF_TARGET_ESP32S3");
+  #endif
+
+  // ouch
+  // tft.drawRGBBitmap(px, py, gatoColor, gatoOpaque, 64, 64);
+  /*
+  for (int i = 0; i < 1; i++) {
+    tft.drawRGBBitmap(px + i*32, py, gatoColor, 64, 64);
+  }
+  */
+
+  // doing this and print deltatime takes 25.5ms
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+
+  // just doing this and print deltatime takes 6ms
+  // tft.drawRGBBitmap(0, 0, canvas.getBuffer(),canvas.width(), 32);
   // tft.writePixels(canvas.getBuffer(), canvas.width() * canvas.height());
 }
