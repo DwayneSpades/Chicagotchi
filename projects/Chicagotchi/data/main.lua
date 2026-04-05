@@ -277,7 +277,6 @@ end
 
 sinDrive=0
 
-
 function myrtle_update()
 	
 	sinDrive = sinDrive + 0.05
@@ -296,49 +295,7 @@ function myrtle_draw()
 	
 	--drawBitmap("testBMP",vector2.new(50,50))
 	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-90,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,0))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
-	
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-90,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
-
 end
 
 

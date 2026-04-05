@@ -249,7 +249,7 @@ int lua_drawSprite(lua_State* L)
   
   int16_t w = sprites[name]->width;
   int16_t h = sprites[name]->height;
-  
+
 
   for(int i=0; i < h; i++)
   {
@@ -450,16 +450,25 @@ void setup(void) {
   previousTime = millis();
 }
 
+void clearScreen(uint16_t color) {
+  memset(_screenBuffer, color, 240 * 135 * sizeof(uint16_t));
+}
+
+void clearLine(int offset, uint16_t color) {
+  memset(_screenBuffer + (240 * offset), color, 240 * sizeof(uint16_t));
+}
+
+// int clearOffset = 0;
+
 void loop() {
   previousTime = engineTime;
   
-
+  
   //canvas lets the draw to screen be not have flicker
-  canvas.fillScreen(0);
+  // clearLine(clearOffset, 0xf000);
+  // clearOffset = (clearOffset + 1) % (135);
+  clearScreen(0x0000);
   canvas.setCursor(0, 0);
-
-  
-  
 
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
@@ -481,4 +490,5 @@ void loop() {
   canvas.println(deltaTime);
 
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  // tft.writePixels(canvas.getBuffer(), canvas.width() * canvas.height());
 }
