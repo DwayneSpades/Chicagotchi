@@ -563,6 +563,9 @@ void setup(void) {
   previousTime = millis();
 
   sprites[name]->setupRuns();
+  for (int i = 0; i < 50; i++){
+    pushGato();
+  }
 }
 
 void clearBuffer(uint16_t* buffer, size_t size, uint16_t color){
@@ -591,6 +594,9 @@ void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int 
     int y = runs[i].y;
 
     int rectOffset = (x + y * rw) + (sx + sy * rw);
+    if (rectOffset + runs[i].w > SCREEN_WIDTH * SCREEN_HEIGHT) {
+      return;
+    }
     memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * runs[i].w);
   }
 }
@@ -616,6 +622,15 @@ void clearLine(int offset, uint16_t color) {
 // int runInd = 0;
 
 std::vector<gameObject> gameObjects;
+
+int spread = 0;
+
+void pushGato() {
+  gameObject g;
+  g.spr = sprites[name];
+  
+  gameObjects.push_back(g);
+}
 
 void loop() {
   updateButtons();
@@ -646,15 +661,15 @@ void loop() {
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
-  float spinTime = engineTime * 0.02f;
+  float spinTime = engineTime * 0.002f;
 
   // update pos
   for (size_t i = 0; i < gameObjects.size(); i++) {
     int w = 64;
     int h = 64;
 
-    int ix = (i%6) * 15;
-    int iy = (i/6) * 15;
+    int ix = (i%15) * spread;
+    int iy = (i/15) * spread;
     gameObjects[i].updatePos(
       -w/2 + SCREEN_WIDTH/2 + sinf(spinTime) * 40 + ix,
       -h/2 + SCREEN_HEIGHT/2 + cosf(spinTime) * 40 + iy
@@ -716,13 +731,12 @@ void loop() {
  // canvas.println("Frame Time (ms): ");
 
   if (D1.down()) {
-    gameObject g;
-    g.spr = sprites[name];
-    
-    gameObjects.push_back(g);
+    // pushGato();
+    spread++;
   }
 
   if (D2.down()) {
+    spread--;
   }
 
   canvas.println(deltaTime);
@@ -730,7 +744,9 @@ void loop() {
   canvas.print(", ");
   canvas.print(D1.held());
   canvas.print(", ");
-  canvas.println(D2.held());
+  canvas.print(D2.held());
+  canvas.print(", spread: ");
+  canvas.println(spread);
   canvas.print(gameObjects.size());
   canvas.println(" gatos");
 
