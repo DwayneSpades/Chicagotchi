@@ -27,6 +27,7 @@
 
 #include "run.h"
 #include "button.h"
+#include "rect.h"
 
 #include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
@@ -55,6 +56,8 @@
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 
+#define SCREEN_WIDTH 240
+#define SCREEN_HEIGHT 135
 
 //[Myrtle framework's Design and Notes:
 
@@ -135,38 +138,124 @@ int lua_sendBitData(lua_State* L)
   return 1;
 }
 
-int gatoRunCount = 0;
-run gatoRuns[256];
+// int gatoRunCount = 0;
+// run gatoRuns[256];
 
 //I'm thining we can store these drawn pixels once to some canvas buffer and just display that
 class sprite 
 {
 public:
 	sprite() = default;
-	sprite(int w, int h, int len);
+	sprite(int w, int h, int len) {
+    width = w;
+    height = h;
+
+    pixels = new uint16_t[len];
+  }
+
 	sprite operator = (const sprite &ptr);
 	~sprite()=default;
 
 	//position
-	int16_t x = 0;
-	int16_t y = 0;
   int width = 0;
 	int height = 0;
   
   //16bit color code
-	uint16_t *pixels;
+	uint16_t* pixels;
+  run* runs;
+  int runCount;
 
+  void setupRuns() {
+    runs = new run[256];
+    memset(runs, 0x00, sizeof(run) * 256);
+
+    int w = width;
+    int h = height;
+    bool inRun = false;
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        int i = x + y * w;
+        uint16_t color = pixels[i];
+
+        int p = runs[runCount].w;
+        if (inRun) {
+          // run until we hit a transparent pixel
+          if (color != 0xEA60) {
+            runs[runCount].pixels[p] = color;
+            runs[runCount].w++;
+          } else {
+            inRun = false;
+            runCount++;
+          }
+        } else {
+          // start a run
+          if (color != 0xEA60) {
+            inRun = true;
+            runs[runCount].x = x;
+            runs[runCount].y = y;
+            runs[runCount].pixels[p] = color;
+            runs[runCount].w++;
+          }
+        }
+      }
+
+      // end of a row -- end current run, if any
+      if (inRun) {
+        runCount++;
+        inRun = false;
+      }
+    }
+  }
+public:
 private:
 };
 
-sprite::sprite(int _w, int _h, int len)
-{
-  width = _w;
-  height = _h;
+uint16_t _genBuffer[240*135];
 
-  pixels = new uint16_t[len];
-}
+int nextGameObjectId;
 
+struct gameObject {
+  int id = -1;
+
+  int x = 0;
+  int y = 0;
+
+  sprite* spr = nullptr;
+
+  rect drawRect;
+
+private:
+  int opx = 0;
+  int opy = 0;
+
+public:
+  gameObject()
+    : id(nextGameObjectId++) {
+  }
+
+  void updatePos(int newX, int newY) {
+    int opx = x;
+    int opy = y;
+
+    x = newX;
+    y = newY;
+
+    drawRect.x = x < opx ? x : opx;
+    drawRect.y = y < opy ? y : opy;
+
+    drawRect.w = (x > opx ? x : opx) + spr->width - drawRect.x;
+    drawRect.h = (y > opy ? y : opy) + spr->height - drawRect.y;
+  }
+  
+  void draw(const rect& inDrawRect) const {
+    updateBuffer(_genBuffer, x - inDrawRect.x, y - inDrawRect.y, spr->width, spr->height, inDrawRect.w, inDrawRect.h, spr->runs, spr->runCount);
+  }
+
+  void clear() {
+    drawRect.w = 0;
+    drawRect.h = 0;
+  }
+};
 //make an array of pixels to store in the sprite Storage
 //store rows of pixels instead
 //use memcopy ot copy the color codes in chunks
@@ -204,8 +293,6 @@ int lua_loadPixel(lua_State* L)
 	//return the values reutrned in this stack
   return 1;
 }
-
-uint16_t _genBuffer[240*135];
 
 uint16_t *_screenBuffer = canvas.getBuffer();
 void customDrawRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap,
@@ -389,8 +476,6 @@ void runScript(const char* fileName)
 int px = 0;
 int py = 0;
 const char * name = "Gato_Roboto.bmp";
-uint16_t gatoColor[64*64];
-uint8_t gatoOpaque[64*64];
 
 void setup(void) {
   Serial.begin(115200);
@@ -477,53 +562,7 @@ void setup(void) {
   engineTime = millis();
   previousTime = millis();
 
-  for (int i = 0; i < 64*64; i++) {
-    gatoColor[i] = sprites[name]->pixels[i] == 0xea60 ? 0x00 : sprites[name]->pixels[i];
-  }
-
-  setupGatoRuns();
-}
-
-void setupGatoRuns() {
-  
-  memset(gatoRuns, 0x00, sizeof(run) * 256);
-
-  int w = 64;
-  int h = 64;
-  bool inRun = false;
-  for (int y = 0; y < h; y++) {
-    for (int x = 0; x < w; x++) {
-      int i = x + y * w;
-      uint16_t color = sprites[name]->pixels[i];
-
-      int p = gatoRuns[gatoRunCount].w;
-      if (inRun) {
-        // run until we hit a transparent pixel
-        if (color != 0xEA60) {
-          gatoRuns[gatoRunCount].pixels[p] = color;
-          gatoRuns[gatoRunCount].w++;
-        } else {
-          inRun = false;
-          gatoRunCount++;
-        }
-      } else {
-        // start a run
-        if (color != 0xEA60) {
-          inRun = true;
-          gatoRuns[gatoRunCount].x = x;
-          gatoRuns[gatoRunCount].y = y;
-          gatoRuns[gatoRunCount].pixels[p] = color;
-          gatoRuns[gatoRunCount].w++;
-        }
-      }
-    }
-
-    // end of a row -- end current run, if any
-    if (inRun) {
-      gatoRunCount++;
-      inRun = false;
-    }
-  }
+  sprites[name]->setupRuns();
 }
 
 void clearBuffer(uint16_t* buffer, size_t size, uint16_t color){
@@ -551,7 +590,16 @@ void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int 
     int x = runs[i].x;
     int y = runs[i].y;
 
-    int offset = x + y * sw;
+    int rectOffset = (x + y * rw) + (sx + sy * rw);
+    memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * runs[i].w);
+  }
+}
+
+void drawRuns(uint16_t* buffer, int rw, int sx, int sy, run* runs, int runCount) {
+  for (int i = 0; i < runCount; i++) {
+    int x = runs[i].x;
+    int y = runs[i].y;
+
     int rectOffset = (x + y * rw) + (sx + sy * rw);
     memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * runs[i].w);
   }
@@ -565,7 +613,9 @@ void clearLine(int offset, uint16_t color) {
   memset(_screenBuffer + (240 * offset), color, 240 * sizeof(uint16_t));
 }
 
-int runInd = 0;
+// int runInd = 0;
+
+std::vector<gameObject> gameObjects;
 
 void loop() {
   updateButtons();
@@ -597,23 +647,64 @@ void loop() {
   deltaTime = engineTime - previousTime;
 
   float spinTime = engineTime * 0.02f;
-  int opx = px;
-  int opy = py;
-  px = -32 + 120 + sinf(spinTime) * 40;
-  py = -32 + 65 + cosf(spinTime) * 40;
 
-  int rectX = px < opx ? px : opx;
-  int rectY = py < opy ? py : opy;
+  // update pos
+  for (size_t i = 0; i < gameObjects.size(); i++) {
+    int w = 64;
+    int h = 64;
 
-  int rectW = (px > opx ? px : opx) + 64 - rectX;
-  int rectH = (py > opy ? py : opy) + 64 - rectY;
+    int ix = (i%6) * 15;
+    int iy = (i/6) * 15;
+    gameObjects[i].updatePos(
+      -w/2 + SCREEN_WIDTH/2 + sinf(spinTime) * 40 + ix,
+      -h/2 + SCREEN_HEIGHT/2 + cosf(spinTime) * 40 + iy
+    );
+  }
+
+  // this crashes -- plus we're back to 20
+  // drawRuns(canvas.getBuffer(), canvas.width(), px, py, gatoRuns, gatoRunCount);
 
   //updateBuffer(_genBuffer, rectX, rectY, rectX+rectW, rectY+rectH, px, py, 64, sprites[name]->pixels);
   // 20 copies added 2ms / 0.1ms/copy
   clearBuffer(_genBuffer, 240 * 135, 0x0000);
+  // pixels version (no transparency)
   // updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, sprites[name]->pixels);
-  updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, gatoRuns, gatoRunCount);
+  // runs version (transparency)
 
+  bool initRect = false;
+  rect drawRect;
+
+  for (size_t i = 0; i < gameObjects.size(); i++) {
+    gameObject& g = gameObjects[i];
+    if (g.drawRect.h > 0 && g.drawRect.w > 0) {
+      if (!initRect) {
+        // intialize  the first rect
+        initRect = true;
+        drawRect = g.drawRect;
+      } else {
+        // accumulate the second
+        // if (drawRect.intersects(g.drawRect)) { // eventually we should separate these...
+          drawRect.x = std::min(drawRect.x, g.drawRect.x);
+          drawRect.y = std::min(drawRect.y, g.drawRect.y);
+          drawRect.w = std::max(drawRect.maxX(), g.drawRect.maxX()) - drawRect.x;
+          drawRect.h = std::max(drawRect.maxY(), g.drawRect.maxY()) - drawRect.y;
+        // }
+      }
+    }
+  }
+  
+  drawRect.x = std::max(0, drawRect.x);
+  drawRect.y = std::max(0, drawRect.y);
+  drawRect.w = std::min(SCREEN_WIDTH, drawRect.w);
+  drawRect.h = std::min(SCREEN_HEIGHT, drawRect.h);
+  
+  for (size_t i = 0; i < gameObjects.size(); i++) {
+    gameObjects[i].draw(drawRect);
+  }
+
+  for (size_t i = 0; i < gameObjects.size(); i++) {
+    gameObjects[i].clear();
+  }
   // 1 draw is still 26ms -- 10 is 31ms
   // around 0.5ms / sprite
   /*
@@ -624,29 +715,24 @@ void loop() {
 
  // canvas.println("Frame Time (ms): ");
 
-  if (runInd < gatoRunCount && D1.down()) {
-    runInd++;
+  if (D1.down()) {
+    gameObject g;
+    g.spr = sprites[name];
+    
+    gameObjects.push_back(g);
   }
 
-  if (runInd > 0 && D2.down()) {
-    runInd--;
+  if (D2.down()) {
   }
 
   canvas.println(deltaTime);
-  canvas.print("Gato run[");
-  canvas.print(runInd);
-  canvas.print("]: (");
-  canvas.print(gatoRuns[runInd].x);
-  canvas.print(", ");
-  canvas.print(gatoRuns[runInd].y);
-  canvas.print("), w: ");
-  canvas.println(gatoRuns[runInd].w);
-  canvas.print(", ");
   canvas.print(D0.held());
   canvas.print(", ");
   canvas.print(D1.held());
   canvas.print(", ");
-  canvas.print(D2.held());
+  canvas.println(D2.held());
+  canvas.print(gameObjects.size());
+  canvas.println(" gatos");
 
   /*
   #if defined(ESP32)
@@ -658,8 +744,15 @@ void loop() {
   #endif
   */
 
-  tft.drawRGBBitmap(rectX, rectY, _genBuffer, rectW, rectH);
+  
+  // old/new rect rendering
+  // tft.fillScreen(0x0000);
+  if (drawRect.w > 0 && drawRect.h > 0) {
+    tft.drawRGBBitmap(drawRect.x, drawRect.y, _genBuffer, drawRect.w, drawRect.h);
+  }
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  // tft.drawRect(drawRect.x, drawRect.y, drawRect.w, drawRect.h, 0xff00);
+  
   // tft.drawRect(rectX, rectY, rectW, rectH, 0xff00);
   // ouch
   // tft.drawRGBBitmap(px, py, gatoColor, gatoOpaque, 64, 64);
