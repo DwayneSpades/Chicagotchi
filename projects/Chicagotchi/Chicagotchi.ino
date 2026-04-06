@@ -84,7 +84,7 @@ uint32_t previousTime = 0;
 uint32_t deltaTime = 0;
 
 float p = 3.1415926;
-GFXcanvas16 canvas(240, 135);
+GFXcanvas16 canvas(240, 32);
 using namespace std;
 
 int lua_drawCircle(lua_State* L)
@@ -555,7 +555,7 @@ void loop() {
   // clearLine(clearOffset, 0xf000);
   // clearOffset = (clearOffset + 1) % (135);
   // clearScreen(0x0000);
-  canvas.fillScreen(0);
+  canvas.fillScreen(0x0000);
   canvas.setCursor(0, 0);
   /*
 
@@ -588,6 +588,7 @@ void loop() {
   int rectH = (py > opy ? py : opy) + 64 - rectY;
 
   //updateBuffer(_genBuffer, rectX, rectY, rectX+rectW, rectY+rectH, px, py, 64, sprites[name]->pixels);
+  // 20 copies added 2ms / 0.1ms/copy
   clearBuffer(_genBuffer, 240 * 135, 0x0000);
   updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, sprites[name]->pixels);
 
@@ -615,6 +616,7 @@ void loop() {
   #endif
 
   tft.drawRGBBitmap(rectX, rectY, _genBuffer, rectW, rectH);
+  tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
   // tft.drawRect(rectX, rectY, rectW, rectH, 0xff00);
   // ouch
   // tft.drawRGBBitmap(px, py, gatoColor, gatoOpaque, 64, 64);
