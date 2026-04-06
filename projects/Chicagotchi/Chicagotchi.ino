@@ -588,16 +588,23 @@ void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int 
 }
 
 void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int rh, run* runs, int runCount) {
-
   for (int i = 0; i < runCount; i++) {
     int x = runs[i].x;
     int y = runs[i].y;
 
+    if (sx + x >= rw || sy + y < 0) continue;
+    if (sy + y >= rh) return;
+
     int rectOffset = (x + y * rw) + (sx + sy * rw);
-    if (rectOffset + runs[i].w > SCREEN_WIDTH * SCREEN_HEIGHT) {
-      return;
+
+    int w = runs[i].w;
+    if (sx + x + w >= rw) {
+      w = rw - (sx + x);
     }
-    memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * runs[i].w);
+
+    if (w > 0) {
+      memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * w);
+    }
   }
 }
 
@@ -710,8 +717,8 @@ void loop() {
   
   drawRect.x = std::max(0, drawRect.x);
   drawRect.y = std::max(0, drawRect.y);
-  drawRect.w = std::min(SCREEN_WIDTH, drawRect.w);
-  drawRect.h = std::min(SCREEN_HEIGHT, drawRect.h);
+  drawRect.w = std::min(SCREEN_WIDTH, drawRect.maxX()) - drawRect.x;
+  drawRect.h = std::min(SCREEN_HEIGHT, drawRect.maxY()) - drawRect.y;
   
   for (size_t i = 0; i < gameObjects.size(); i++) {
     gameObjects[i].draw(drawRect);
@@ -762,12 +769,12 @@ void loop() {
 
   
   // old/new rect rendering
-  // tft.fillScreen(0x0000);
+  // tft.fillScreen(0x0000); //dbug0
   if (drawRect.w > 0 && drawRect.h > 0) {
     tft.drawRGBBitmap(drawRect.x, drawRect.y, _genBuffer, drawRect.w, drawRect.h);
   }
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
-  // tft.drawRect(drawRect.x, drawRect.y, drawRect.w, drawRect.h, 0xff00);
+  // tft.drawRect(drawRect.x, drawRect.y, drawRect.w, drawRect.h, 0xff00); // dbug1
   
   // tft.drawRect(rectX, rectY, rectW, rectH, 0xff00);
   // ouch
