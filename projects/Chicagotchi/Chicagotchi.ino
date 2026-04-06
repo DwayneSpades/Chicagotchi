@@ -24,7 +24,9 @@
 #include <lundump.h>
 #include <lvm.h>
 #include <lzio.h>
+
 #include "run.h"
+#include "button.h"
 
 #include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
@@ -86,6 +88,16 @@ uint32_t deltaTime = 0;
 float p = 3.1415926;
 GFXcanvas16 canvas(240, 32);
 using namespace std;
+
+button D0(0);
+button D1(1);
+button D2(2);
+
+void updateButtons() {
+  D0.update();
+  D1.update();
+  D2.update();
+}
 
 int lua_drawCircle(lua_State* L)
 {
@@ -383,6 +395,10 @@ uint8_t gatoOpaque[64*64];
 void setup(void) {
   Serial.begin(115200);
 
+  D0.init();
+  D1.init();
+  D2.init();
+
   // turn on backlite
   pinMode(TFT_BACKLITE, OUTPUT);
   digitalWrite(TFT_BACKLITE, HIGH);
@@ -478,24 +494,26 @@ void setupGatoRuns() {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       int i = x + y * w;
-      
+      uint16_t color = sprites[name]->pixels[i];
+
+      int p = gatoRuns[gatoRunCount].w;
       if (inRun) {
         // run until we hit a transparent pixel
-        if (gatoColor[i] != 0xEA60) {
+        if (color != 0xEA60) {
+          gatoRuns[gatoRunCount].pixels[p] = color;
           gatoRuns[gatoRunCount].w++;
-          gatoRuns[gatoRunCount].pixels[i] = gatoColor[i];
         } else {
           inRun = false;
           gatoRunCount++;
         }
       } else {
         // start a run
-        if (gatoColor[i] != 0xEA60) {
+        if (color != 0xEA60) {
           inRun = true;
           gatoRuns[gatoRunCount].x = x;
           gatoRuns[gatoRunCount].y = y;
+          gatoRuns[gatoRunCount].pixels[p] = color;
           gatoRuns[gatoRunCount].w++;
-          gatoRuns[gatoRunCount].pixels[i] = gatoColor[i];
         }
       }
     }
@@ -527,16 +545,15 @@ void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int 
   }
 }
 
-void updateBuffer(uint16_t* buffer, int minX, int minY, int maxX, int maxY, run* runs, int runCount) {
-  clampToScreen(minX, minY);
-  clampToScreen(maxX, maxY);
-  
-  int w = maxX - minX;
-  if (w <= 0) return;
+void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int rh, run* runs, int runCount) {
 
   for (int i = 0; i < runCount; i++) {
-    int offset = runs[i].x + runs[i].y * w;
-    memcpy(buffer + offset, runs[runCount].pixels, sizeof(uint16_t) * runs[runCount].w);
+    int x = runs[i].x;
+    int y = runs[i].y;
+
+    int offset = x + y * sw;
+    int rectOffset = (x + y * rw) + (sx + sy * rw);
+    memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * runs[i].w);
   }
 }
 
@@ -548,7 +565,11 @@ void clearLine(int offset, uint16_t color) {
   memset(_screenBuffer + (240 * offset), color, 240 * sizeof(uint16_t));
 }
 
+int runInd = 0;
+
 void loop() {
+  updateButtons();
+
   previousTime = engineTime;
   
   //canvas lets the draw to screen be not have flicker
@@ -590,7 +611,8 @@ void loop() {
   //updateBuffer(_genBuffer, rectX, rectY, rectX+rectW, rectY+rectH, px, py, 64, sprites[name]->pixels);
   // 20 copies added 2ms / 0.1ms/copy
   clearBuffer(_genBuffer, 240 * 135, 0x0000);
-  updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, sprites[name]->pixels);
+  // updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, sprites[name]->pixels);
+  updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, gatoRuns, gatoRunCount);
 
   // 1 draw is still 26ms -- 10 is 31ms
   // around 0.5ms / sprite
@@ -601,19 +623,40 @@ void loop() {
     */
 
  // canvas.println("Frame Time (ms): ");
-  canvas.println(deltaTime);
 
+  if (runInd < gatoRunCount && D1.down()) {
+    runInd++;
+  }
+
+  if (runInd > 0 && D2.down()) {
+    runInd--;
+  }
+
+  canvas.println(deltaTime);
+  canvas.print("Gato run[");
+  canvas.print(runInd);
+  canvas.print("]: (");
+  canvas.print(gatoRuns[runInd].x);
+  canvas.print(", ");
+  canvas.print(gatoRuns[runInd].y);
+  canvas.print("), w: ");
+  canvas.println(gatoRuns[runInd].w);
+  canvas.print(", ");
+  canvas.print(D0.held());
+  canvas.print(", ");
+  canvas.print(D1.held());
+  canvas.print(", ");
+  canvas.print(D2.held());
+
+  /*
   #if defined(ESP32)
   canvas.println("ESP32");
   #endif
 
-  #if defined(CONFIG_IDF_TARGET_ESP32)
-  canvas.println("CONFIG_IDF_TARGET_ESP32");
-  #endif
-  
   #if defined(CONFIG_IDF_TARGET_ESP32S3)
   canvas.println("CONFIG_IDF_TARGET_ESP32S3");
   #endif
+  */
 
   tft.drawRGBBitmap(rectX, rectY, _genBuffer, rectW, rectH);
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
