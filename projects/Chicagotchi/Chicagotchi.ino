@@ -592,18 +592,31 @@ void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int 
     int x = runs[i].x;
     int y = runs[i].y;
 
+    // horizontal overflow > 
+    // and vertical underflow ^
     if (sx + x >= rw || sy + y < 0) continue;
+
+    // vertical overflow -- we're just done
     if (sy + y >= rh) return;
 
-    int rectOffset = (x + y * rw) + (sx + sy * rw);
-
     int w = runs[i].w;
+
+    // clip horizontal overflow >
     if (sx + x + w >= rw) {
       w = rw - (sx + x);
     }
 
+    // compensate horizontal underflow <
+    int xComp = 0;
+    if (sx + x < 0) {
+      xComp = -(sx+x);
+      w -= xComp;
+    }
+
+    int rectOffset = xComp + (x + y * rw) + (sx + sy * rw);
+
     if (w > 0) {
-      memcpy(buffer + rectOffset, runs[i].pixels, sizeof(uint16_t) * w);
+      memcpy(buffer + rectOffset, runs[i].pixels + xComp, sizeof(uint16_t) * w);
     }
   }
 }
@@ -678,7 +691,7 @@ void loop() {
     int ix = (i%15) * spread;
     int iy = (i/15) * spread;
     gameObjects[i].updatePos(
-      -w/2 + SCREEN_WIDTH/2 + sinf(spinTime) * 40 + ix,
+      -w/2 + SCREEN_WIDTH/2 + sinf(spinTime) * 140 + ix,
       -h/2 + SCREEN_HEIGHT/2 + cosf(spinTime) * 40 + iy
     );
   }
