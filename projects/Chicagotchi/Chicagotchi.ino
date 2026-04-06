@@ -89,7 +89,7 @@ uint32_t previousTime = 0;
 uint32_t deltaTime = 0;
 
 float p = 3.1415926;
-GFXcanvas16 canvas(240, 32);
+GFXcanvas16 canvas(SCREEN_WIDTH, 32);
 using namespace std;
 
 button D0(0);
@@ -210,7 +210,7 @@ public:
 private:
 };
 
-uint16_t _genBuffer[240*135];
+uint16_t _genBuffer[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 int nextGameObjectId;
 
@@ -494,7 +494,7 @@ void setup(void) {
   delay(10);
 
   // initialize TFT
-  tft.init(135, 240); // Init ST7789 240x135
+  tft.init(SCREEN_HEIGHT, SCREEN_WIDTH); // Init ST7789 240x135
   tft.setRotation(3);
   tft.fillScreen(ST77XX_BLACK);
 
@@ -573,8 +573,8 @@ void clearBuffer(uint16_t* buffer, size_t size, uint16_t color){
 }
 
 void clampToScreen(int& x, int& y) {
-  x = x < 0 ? 0 : (x >= 240 ? 239 : x);
-  y = y < 0 ? 0 : (y >= 135 ? 134 : y);
+  x = x < 0 ? 0 : (x >= SCREEN_WIDTH ? SCREEN_WIDTH - 1 : x);
+  y = y < 0 ? 0 : (y >= SCREEN_HEIGHT ? SCREEN_HEIGHT - 1 : y);
 }
 
 void updateBuffer(uint16_t* buffer, int sx, int sy, int sw, int sh, int rw, int rh, uint16_t* pixels) {
@@ -612,11 +612,11 @@ void drawRuns(uint16_t* buffer, int rw, int sx, int sy, run* runs, int runCount)
 }
 
 void clearScreen(uint16_t color) {
-  memset(_screenBuffer, color, 240 * 135 * sizeof(uint16_t));
+  memset(_screenBuffer, color, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint16_t));
 }
 
 void clearLine(int offset, uint16_t color) {
-  memset(_screenBuffer + (240 * offset), color, 240 * sizeof(uint16_t));
+  memset(_screenBuffer + (SCREEN_WIDTH * offset), color, SCREEN_WIDTH * sizeof(uint16_t));
 }
 
 // int runInd = 0;
@@ -681,7 +681,7 @@ void loop() {
 
   //updateBuffer(_genBuffer, rectX, rectY, rectX+rectW, rectY+rectH, px, py, 64, sprites[name]->pixels);
   // 20 copies added 2ms / 0.1ms/copy
-  clearBuffer(_genBuffer, 240 * 135, 0x0000);
+  clearBuffer(_genBuffer, SCREEN_WIDTH * SCREEN_HEIGHT, 0x0000);
   // pixels version (no transparency)
   // updateBuffer(_genBuffer, px - rectX, py - rectY, 64, 64, rectW, rectH, sprites[name]->pixels);
   // runs version (transparency)
