@@ -30,10 +30,7 @@
 #include "rect.h"
 #include "networkManager.h"
 
-#include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
-#include <Adafruit_ST7796S.h>
-#include <Adafruit_ST77xx.h>
 
 #include <stdio.h>
 #include <stddef.h>
@@ -56,6 +53,7 @@
 
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+#include <esp_system.h>
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 135
@@ -479,7 +477,7 @@ int py = 0;
 const char * name = "Gato_Roboto.bmp";
 
 void setup(void) {
-  Serial.begin(19200);
+  Serial.begin(115200);
 
   D0.init();
   D1.init();
@@ -499,7 +497,7 @@ void setup(void) {
   tft.setRotation(3);
   tft.fillScreen(ST77XX_BLACK);
 
-  Serial.println(F("Initialized"));
+  Serial.println(F("fInitialized"));
 
   uint16_t time = millis();
   tft.fillScreen(ST77XX_BLACK);
@@ -537,7 +535,66 @@ void setup(void) {
   //luaL_dostring(L,"package.path = package.path .. ';./?.lua;/littlefs/?.lua'");
   runScript("main.lua");
   tft.println("Loaded Lua scripts successfully");
-  delay(2000);
+  esp_reset_reason_t reason = esp_reset_reason();
+  tft.print("RESET REASON: ");
+  switch (reason) {
+    case esp_reset_reason_t::ESP_RST_UNKNOWN:
+    tft.println("UNKNOWN");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_POWERON:
+    tft.println("POWERON");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_SW:
+    tft.println("SOFTWARE");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_PANIC:
+    tft.println("PANIC !!!");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_INT_WDT:
+    case esp_reset_reason_t::ESP_RST_TASK_WDT:
+    case esp_reset_reason_t::ESP_RST_WDT:
+    tft.println("WATCH DOG");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_DEEPSLEEP:
+    tft.println("SLEEP");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_BROWNOUT:
+    tft.println("BROWNOUT!!!");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_SDIO:
+    case esp_reset_reason_t::ESP_RST_USB:
+    case esp_reset_reason_t::ESP_RST_JTAG:
+      tft.println("PERIPHERAL");
+      break;
+
+    case esp_reset_reason_t::ESP_RST_EFUSE:
+      tft.println("EFUSE ERROR");
+      break;
+
+    case esp_reset_reason_t::ESP_RST_PWR_GLITCH:
+      tft.println("POWER GLITCH");
+      break;
+
+    case esp_reset_reason_t::ESP_RST_CPU_LOCKUP:
+      tft.println("CPU LOCKUP");
+      break;
+
+    default:
+      tft.print("unhandled case: ");
+      tft.println(reason);
+      break;
+  }
+  tft.println(F("fff"));
+  delay(3000);
+  networkSetup();
+
 
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
@@ -556,7 +613,7 @@ void setup(void) {
   tft.println("ran Game Load successfully");
   //tft.drawCircle(32, 32, 32, ST77XX_BLUE);
   
-  delay(2000);
+  delay(500);
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
 
@@ -568,8 +625,6 @@ void setup(void) {
   for (int i = 0; i < 50; i++){
     pushGato();
   }
-
-  networkSetup();
 }
 
 void clearBuffer(uint16_t* buffer, size_t size, uint16_t color){
@@ -656,6 +711,8 @@ void pushGato() {
   gameObjects.push_back(g);
 }
 
+int j = 0;
+
 void loop() {
   updateButtons();
 
@@ -685,10 +742,10 @@ void loop() {
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
-  // networkUpdate(deltaTime);
+  networkUpdate(deltaTime);
 
   bool sentPing = false;
-  if (D1.down()) {
+  if (D2.down()) {
     sentPing = networkSendPing();
   }
 
@@ -702,11 +759,14 @@ void loop() {
     int ix = (i%15) * spread;
     int iy = (i/15) * spread;
     gameObjects[i].updatePos(
-      -w/2 + SCREEN_WIDTH/2 + sinf(spinTime) * 140 + ix,
-      -h/2 + SCREEN_HEIGHT/2 + cosf(spinTime) * 40 + iy
+      -w/2 + SCREEN_WIDTH/2 + sinf(spinTime) * 20 + ix,
+      -h/2 + SCREEN_HEIGHT/2 + cosf(spinTime) * 20 + iy + j
     );
   }
 
+  if (j > 0) {
+    j--;
+  }
   // this crashes -- plus we're back to 20
   // drawRuns(canvas.getBuffer(), canvas.width(), px, py, gatoRuns, gatoRunCount);
 
@@ -767,7 +827,7 @@ void loop() {
   }
 
   if (D2.down()) {
-    spread--;
+    //spread--;
   }
 
   canvas.println(deltaTime);
@@ -816,4 +876,10 @@ void loop() {
   // just doing this and print deltatime takes 6ms
   // tft.drawRGBBitmap(0, 0, canvas.getBuffer(),canvas.width(), 32);
   // tft.writePixels(canvas.getBuffer(), canvas.width() * canvas.height());
+
+  if (jump) {
+    j = 24;
+  }
+
+  networkClear();
 }

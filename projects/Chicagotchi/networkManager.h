@@ -5,6 +5,7 @@
 const uint8_t broadcastAddressFF[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 bool peerInit = false;
+bool jump = true;
 
 esp_now_peer_info_t peerInfo;
 esp_now_peer_info_t peerInfoFF;
@@ -121,11 +122,14 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
         if (!peerInit) {
             addPeer(esp_now_info);
         }
+    } else {
+    Serial.println("jump data: ");
+        jump = true;
     }
     
     if (peerInit) {
-        const char msg[64] = "Nice to meet you :)";
-        sendMsg(peerInfo.peer_addr, msg, sizeof(msg));
+        //const char msg[64] = "Nice to meet you :)";
+        //sendMsg(peerInfo.peer_addr, msg, sizeof(msg));
     }
 }
 
@@ -147,7 +151,6 @@ void networkSetup() {
 
     Serial.println("ESP-NOW Init Ok!");
 
-    /*
     // Once ESPNow is successfully Init, we will register for Send CB to
     // get the status of Transmitted packet
     esp_err_t result = esp_now_register_send_cb(OnDataSent);
@@ -180,7 +183,6 @@ void networkSetup() {
     Serial.println("###################");
     Serial.println("everything ship-shape capn'!");
     Serial.println("###################");
-    */
 }
 
 void networkUpdate(float dt) {
@@ -191,6 +193,10 @@ void networkUpdate(float dt) {
         sendBroadcast(broadcastAddressFF);
         return;
     }
+}
+
+void networkClear() {
+    jump = false;
 }
 
 bool networkSendPing() {
