@@ -28,6 +28,7 @@
 #include "run.h"
 #include "button.h"
 #include "rect.h"
+#include "networkManager.h"
 
 #include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
@@ -478,7 +479,7 @@ int py = 0;
 const char * name = "Gato_Roboto.bmp";
 
 void setup(void) {
-  Serial.begin(115200);
+  Serial.begin(19200);
 
   D0.init();
   D1.init();
@@ -563,9 +564,12 @@ void setup(void) {
   previousTime = millis();
 
   sprites[name]->setupRuns();
+
   for (int i = 0; i < 50; i++){
     pushGato();
   }
+
+  networkSetup();
 }
 
 void clearBuffer(uint16_t* buffer, size_t size, uint16_t color){
@@ -681,6 +685,13 @@ void loop() {
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
+  // networkUpdate(deltaTime);
+
+  bool sentPing = false;
+  if (D1.down()) {
+    sentPing = networkSendPing();
+  }
+
   float spinTime = engineTime * 0.002f;
 
   // update pos
@@ -760,13 +771,14 @@ void loop() {
   }
 
   canvas.println(deltaTime);
-  canvas.print(D0.held());
-  canvas.print(", ");
-  canvas.print(D1.held());
-  canvas.print(", ");
-  canvas.print(D2.held());
-  canvas.print(", spread: ");
-  canvas.println(spread);
+  canvas.print("spread: ");
+  canvas.print(spread);
+  if (peerInit) {
+    canvas.print(", hasPeer!, ");
+  }
+  if (sentPing) {
+    canvas.print("!!!");
+  }
   canvas.print(gameObjects.size());
   canvas.println(" gatos");
 
@@ -799,7 +811,7 @@ void loop() {
   */
 
   // doing this and print deltatime takes 25.5ms
-  //tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  //tft.drawRGBBitmap(0, 0, canvas.`(), canvas.width(), canvas.height());
 
   // just doing this and print deltatime takes 6ms
   // tft.drawRGBBitmap(0, 0, canvas.getBuffer(),canvas.width(), 32);
