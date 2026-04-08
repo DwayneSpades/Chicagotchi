@@ -83,7 +83,9 @@ uint32_t previousTime = 0;
 uint32_t deltaTime = 0;
 
 float p = 3.1415926;
+
 GFXcanvas16 canvas(240, 135);
+
 using namespace std;
 
 int lua_drawCircle(lua_State* L)
@@ -122,6 +124,26 @@ int lua_sendBitData(lua_State* L)
   return 1;
 }
 
+//store only the visible pixel island on a strip when storing sprite data
+//store the line of pixels
+//the length of the island
+//the x,y start of the line segment
+class pixelIsland {
+  //can be up to 64 spaces long but doesn't have to be...
+  //store len
+public:
+  pixelIsland() = default;
+	pixelIsland(int x, int y);
+	pixelIsland operator = (const pixelIsland &ptr);
+	~pixelIsland()=default;
+
+  alignas(16) uint16_t buffer [64];
+  int len = 0 ;
+  uint16_t x = 0;
+  uint16_t y = 0;
+  
+};
+
 //I'm thining we can store these drawn pixels once to some canvas buffer and just display that
 class sprite 
 {
@@ -131,15 +153,20 @@ public:
 	sprite operator = (const sprite &ptr);
 	~sprite()=default;
 
-	//position
-	int16_t x = 0;
-	int16_t y = 0;
+  uint16_t *pixels;
+  pixelIsland *pixelIslands;
+  
   int width = 0;
 	int height = 0;
-  
-  //16bit color code
-	uint16_t *pixels;
+  int numIslands = 0;
 
+  int16_t x = 0;
+	int16_t y = 0;
+
+  //16bit color code
+	
+  //store a list of the visible line islands instead so they can be memcpy'd straight up in a best case scenario
+  
 private:
 };
 
@@ -149,6 +176,7 @@ sprite::sprite(int _w, int _h, int len)
   height = _h;
 
   pixels = new uint16_t[len];
+  pixelIslands = new pixelIsland[500];
 }
 
 //make an array of pixels to store in the sprite Storage
@@ -172,10 +200,25 @@ int lua_createSprite(lua_State* L)
   return 1;
 }
 
+//load one pixel at a time....
+//organize the pixels into line segment arrays...
+//count the pixels Islands by their visible pixels
+//if transparent pixel found then do not create or add a pixel island object to the pixel island list.
+bool createIsland = true;
+int xIterator = 0;
+int yIterator = 0;
+int lineIndex = 0;
+int islandIndex = -1;
+
+pixelIsland *currentIsland = new pixelIsland();
+
 int lua_loadPixel(lua_State* L)
 {
   const char* name = lua_tostring(L, 1);
   int index = (int)lua_tonumber(L, 2);
+  //replace this with a width call.
+  //simply count each row pixel by pixel by incriment the y iterator once the x Iterator reaches 63 and reset to zero
+  int width = 64;
 
   const char* stuff = lua_tostring(L, 3);
   uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
@@ -183,19 +226,63 @@ int lua_loadPixel(lua_State* L)
 	//create the drawable and push into the map
   sprites[name]->pixels[index] = color;
   
-  
+  xIterator += 1;
+  if (xIterator > width-1)
+  {
+    xIterator = 0;
+    yIterator += 1;
+  }
+
+  //if color is not transparent then create a 
+  if (color != 0xea60)
+  {
+    //create island
+    if(createIsland == true)
+    {
+      islandIndex += 1;
+      createIsland = false;
+      lineIndex = 0;
+      
+      sprites[name]->numIslands += 1;
+ 
+      sprites[name]->pixelIslands[islandIndex].x = xIterator;
+      sprites[name]->pixelIslands[islandIndex].y = yIterator;
+      sprites[name]->pixelIslands[islandIndex].buffer[lineIndex] = color;
+      sprites[name]->pixelIslands[islandIndex].len += 1;
+      lineIndex += 1;
+    }
+    else
+    {
+      sprites[name]->pixelIslands[islandIndex].buffer[lineIndex] = color;
+      sprites[name]->pixelIslands[islandIndex].len += 1;
+      lineIndex += 1;
+    }
+  }
+  else
+  {
+    //make a new island and reset xIterator
+    createIsland = true;
+    //tft.println(color);
+  }
+
    //.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
   return 1;
 }
 
-uint16_t *_screenBuffer = canvas.getBuffer();
+struct screenBufferStruct {
+  alignas(16) uint16_t buffer [32400];
+};
+
+screenBufferStruct _screenBuffer;
+
 void customDrawRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap,
                                  int16_t w, int16_t h) {
   for (int16_t j = 0; j < h; j++, y++) {
     for (int16_t i = 0; i < w; i++) {
       if (bitmap[j * w + i] != 0xea60)
       {
+        //custom_memcpy(canvas.getBuffer() + ( (y+j) * canvas.width() + x), sprites[name]->pixels + ((0+j) * w + 0), sizeof(uint16_t) * 1);
         canvas.writePixel(x + i,y, bitmap[j * w + i]);
       }
     }
@@ -206,9 +293,8 @@ void customDrawRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap,
 int lua_drawBitmap(lua_State* L)
 {
   const char* name = lua_tostring(L, 1);
-  int len = (int)lua_tonumber(L, 2);
-  int16_t x = (int16_t)lua_tonumber(L, 3);
-  int16_t y = (int16_t)lua_tonumber(L, 4);
+  int16_t x = (int16_t)lua_tonumber(L, 2);
+  int16_t y = (int16_t)lua_tonumber(L, 3);
   
   //memcpy(_screenBuffer + (y * canvas.width() + x) + 1, sprites[name], i * (sizeof(unit16_t) * 65));
   customDrawRGBBitmap(x,y,sprites[name]->pixels,64,64);
@@ -220,61 +306,50 @@ void custom_memcpy(void* dest, const void* src, int len)
     char* d = static_cast<char*>(dest);
     const char* s = static_cast<const char*>(src);
     
-    
-    int iterator = 0;
-    while (len--)
+    for (int i = 0; i < len; ++i)
     {
-        if (static_cast<uint16_t>(s[0]) != 234 && static_cast<uint16_t>(s[0]) != 96)
-        {
-                //canvas.println(static_cast<uint16_t>(s[0]));
-          *d++ = *s++;
-        }
-        else
-        {
-          *d++;
-          *s++;
-        }
-    
-        iterator += 1;
+      //if (s[i] != 234 && s[i] != 96) 
+        //d[i] = s[i];
     }
 
 }
 
+uint16_t *_canvasBuffer = canvas.getBuffer();
 int lua_drawSprite(lua_State* L)
 {
-  const char* name = lua_tostring(L, 1);
-  int len = (int)lua_tonumber(L, 2);
-  int16_t x = (int16_t)lua_tonumber(L, 3);
-  int16_t y = (int16_t)lua_tonumber(L, 4);
-  
-  int16_t w = sprites[name]->width;
-  int16_t h = sprites[name]->height;
-  
+    const char* name = lua_tostring(L, 1);
+    int16_t x = (int16_t)lua_tointeger(L, 2);
+    int16_t y = (int16_t)lua_tointeger(L, 3);
 
-  for(int i=0; i < h; i++)
-  {
-    
-    //modify the starting point and width of the line of the pixel line segment to account for x-axis clipping
-    //modify the line segment to copy the screenbuffer pixels over where the transparencies should be in the line
-    /*
-    for(int j=0; j < w; j++)
+    auto* sprite = sprites[name];
+    int islandSize = sprite->numIslands;
+    pixelIsland* spritePtr = sprite->pixelIslands;
+
+    for (int i = 0; i < islandSize; i++)
     {
-      //overwrite the transparent pixels wiht whatever is in t he screen buffer already
-      if (sprites[name]->pixels[((0+i) * w + j)] == 0xea60)
-        sprites[name]->pixels[((0+i) * w + j)] = _screenBuffer[( (y+i) * canvas.width() + x + j)];
+        int16_t yShift = y + spritePtr[i].y;
+        if (yShift < 0) continue;
+        if (yShift >= 135) break; // y-sorted, done
 
+        int16_t dstX = x + spritePtr[i].x;
+        int16_t copyLen = spritePtr[i].len;
+        int16_t srcOffset = 0;
+
+        if (dstX < 0) {
+            srcOffset = -dstX;
+            copyLen += dstX;
+            dstX = 0;
+        }
+        if (dstX + copyLen > 240) {
+            copyLen = 240 - dstX;
+        }
+        if (copyLen <= 0) continue;
+
+        memcpy(_canvasBuffer + (yShift * 240 + dstX),
+               spritePtr[i].buffer + srcOffset,
+               sizeof(uint16_t) * copyLen);
     }
-    */
-    if ((y+i) < canvas.height() && (y+i) >= 0 && (x+w > 0) && (x < canvas.width()))
-      if(w + x >=  canvas.width())
-        custom_memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) *  (w - ((x+(w))- canvas.width())));
-      else if(x <= 0)
-        custom_memcpy(_screenBuffer + ( (y+i) * canvas.width() + 0), sprites[name]->pixels + ((0+i) * w - (x-1)), sizeof(uint16_t) * (w + x));
-      else
-        custom_memcpy(_screenBuffer + ( (y+i) * canvas.width() + x), sprites[name]->pixels + ((0+i) * w + 0), sizeof(uint16_t) * w);
-  }
-
-  return 1;
+    return 1;
 }
 
 
@@ -455,11 +530,9 @@ void loop() {
   
 
   //canvas lets the draw to screen be not have flicker
+  //memset(_screenBuffer.buffer, 0, 32400*2);
   canvas.fillScreen(0);
   canvas.setCursor(0, 0);
-
-  
-  
 
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
@@ -480,5 +553,6 @@ void loop() {
   canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
 
+  //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
 }
