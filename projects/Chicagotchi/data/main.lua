@@ -8,11 +8,20 @@ myrtle.drawBitmap = drawBitmap
 
 myrtle.convertHex = convertHex
 
+myrtle.buttonDown = buttonDown
+myrtle.buttonUp = buttonUp
+myrtle.buttonHeld = buttonHeld
+myrtle.buttonUnheld = buttonUnheld
+
 myrtle.require = myrtleRequire
 myrtle.print = myrtlePrint
 myrtle.println = myrtlePrintln
 myrtle.setTextColor = myrtleSetTextColor
 
+myrtle.buttons = {}
+myrtle.buttons.D0 = 0
+myrtle.buttons.D1 = 1
+myrtle.buttons.D2 = 2
 
 myrtle.require("vector2.lua")
 myrtle.require("gameSceneManager.lua")
@@ -68,12 +77,19 @@ end
 sinDrive=0
 
 
+local sx = 0;
+local sy = 0;
+
 function myrtle_update()
 	
 	sinDrive = sinDrive + 0.05
-	spriteObject.position.x = 100 + math.sin(sinDrive)*20
-	spriteObject.position.y = 32 + math.cos(sinDrive)*20
+	spriteObject.position.x = sx + 100 + math.sin(sinDrive)*20
+	spriteObject.position.y = sy + 32 + math.cos(sinDrive)*20
 	
+	if (myrtle.buttonDown(myrtle.buttons.D0)) then
+		sy = sy + 15
+	end
+
 	runGarbageCollector()
 end
 
