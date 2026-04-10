@@ -292,26 +292,25 @@ struct packet {
         packet_str_data str_data;
         size_t size = my_strlen_s(str, MAX_STR_SIZE);
         
+        // was copying a buffer here... and it crashed when i did that...
+        // not sure why, it was stack-allocated...
         if (str[size - 1] != 0x0) { // jic
-            char buf[MAX_STR_SIZE];
-            memcpy(buf, str, size * sizeof(char));
-            buf[MAX_STR_SIZE - 1] = 0x0;
             Serial.print("STRING WAS TOO BIG!: ");
-            Serial.println(buf);
+            for (size_t i = 0; i < size; i++){
+                Serial.print(str[i]);
+            }
+            Serial.println("");
         }
 
-        memset(&str_data, 0x0, sizeof(packet_str_data));
-        memcpy(str_data.buffer, str, size * sizeof(char));
-        str_data.size = (uint16_t)size;
-
         data.push_back(packet_stamp::string);
-        uint16_t strSize = str_data.size;
 
-        // this was crashing for some fuckin reason..
-        data.insert(data.end(), (uint8_t*)&strSize, (uint8_t*)(&strSize + 1));
-        // data.push_back(static_cast<uint8_t>(str_data.size & 0xFF));
-        // data.push_back(static_cast<uint8_t>(str_data.size >> 8));
-        data.insert(data.end(), (uint8_t*)str_data.buffer, (uint8_t*)(str_data.buffer + str_data.size));
+        // this was also crashing for similar reasons...
+        // trying to do an insert across the whole string...
+        uint16_t size_small = (uint16_t)size;
+        data.insert(data.end(), (uint8_t*)&size_small, (uint8_t*)(&size_small + 1));
+        for (size_t i = 0; i < size; i++) {
+            data.push_back((uint8_t)str[i]);
+        }
     }
 
     void pushTableBegin() { data.push_back(packet_stamp::table_begin); }
@@ -387,7 +386,7 @@ bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
             pck.pushNumber(lua_toboolean(L, idx));
             break;
         case LUA_TSTRING:
-            // pck.pushString(lua_tostring(L, idx)); // <- this is cursed - fix it
+            pck.pushString(lua_tostring(L, idx)); // <- this is cursed -- might be brittle...
             break;
         default:
             pck.pushNil();
