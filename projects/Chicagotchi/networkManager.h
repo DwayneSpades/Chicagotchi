@@ -6,6 +6,8 @@
 #include <WiFi.h>
 #include <lapi.h>
 #include <vector>
+#include <cstdint>
+#include <string>
 
 // ESP-NOW broadcast address
 const uint8_t broadcastAddressFF[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -96,8 +98,7 @@ bool sendMsg(const uint8_t* peer_addr, const char* msg, int len) {
         SerialPrintMAC(peer_addr);
         Serial.print(" with success.");
         return true;
-    }
-    else {
+    } else {
         Serial.print("Error sending the data: ");
         Serial.print(esp_err_to_name(result));
         Serial.print(". ");
@@ -237,6 +238,88 @@ bool consumeStreetpass() {
     return false;
 }
 
+namespace packet_stamp {
+    // primitives
+    const uint8_t nil = 0x00;
+    const uint8_t number = 0x01;
+    const uint8_t boolean = 0x02;
+    const uint8_t string = 0x03;
+
+    // tables
+    const uint8_t table_begin = 0x04;
+    const uint8_t table_key = 0x05;
+    const uint8_t table_value = 0x06;
+    const uint8_t table_end = 0x07;
+}
+
+#define MAX_STR_SIZE 0xFFFF
+struct packet_str_data {
+    char buffer[MAX_STR_SIZE];
+    uint16_t size = 0;
+};
+
+// what
+size_t my_strlen_s(const char* buf, size_t max) {
+    for (size_t i = 0; i < max; i++){
+        if (*buf == 0x0) {
+            return i+1;
+        }
+
+        buf++;
+    }
+
+    return max;
+}
+
+struct packet {
+    std::vector<uint8_t> data;
+
+    void pushNil() {
+        data.push_back(packet_stamp::nil);
+    }
+
+    void pushNumber(double value) {
+        data.push_back(packet_stamp::number);
+        data.insert(data.end(), (uint8_t*)&value, (uint8_t*)(&value + 1));
+    }
+
+    void pushBoolean(bool value) {
+        data.push_back(packet_stamp::boolean);
+        data.push_back((uint8_t)value);
+    }
+
+    void pushString(const char* str) {
+        packet_str_data str_data;
+        size_t size = my_strlen_s(str, MAX_STR_SIZE);
+        
+        if (str[size - 1] != 0x0) { // jic
+            char buf[MAX_STR_SIZE];
+            memcpy(buf, str, size * sizeof(char));
+            buf[MAX_STR_SIZE - 1] = 0x0;
+            Serial.print("STRING WAS TOO BIG!: ");
+            Serial.println(buf);
+        }
+
+        memset(&str_data, 0x0, sizeof(packet_str_data));
+        memcpy(str_data.buffer, str, size * sizeof(char));
+        str_data.size = (uint16_t)size;
+
+        data.push_back(packet_stamp::string);
+        uint16_t strSize = str_data.size;
+
+        // this was crashing for some fuckin reason..
+        data.insert(data.end(), (uint8_t*)&strSize, (uint8_t*)(&strSize + 1));
+        // data.push_back(static_cast<uint8_t>(str_data.size & 0xFF));
+        // data.push_back(static_cast<uint8_t>(str_data.size >> 8));
+        data.insert(data.end(), (uint8_t*)str_data.buffer, (uint8_t*)(str_data.buffer + str_data.size));
+    }
+
+    void pushTableBegin() { data.push_back(packet_stamp::table_begin); }
+    void pushTableKey() { data.push_back(packet_stamp::table_key); }
+    void pushTableValue() { data.push_back(packet_stamp::table_value); }
+    void pushTableEnd() { data.push_back(packet_stamp::table_end); }
+};
+
 void printTypeAndValue(lua_State* L, int idx) {
     int t = lua_type(L, idx);
     const char* tName = lua_typename(L, t);
@@ -276,7 +359,63 @@ void indent() {
     }
 }
 
-void processLuaTable(lua_State* L, int idx) {
+bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
+    if (isKey) {
+        pck.pushTableKey();
+    } else {
+        pck.pushTableValue();
+    }
+
+    printTypeAndValue(L, idx);
+
+    int valueT = lua_type(L, idx);
+    switch (valueT) {
+        case LUA_TNIL:
+            pck.pushNil();
+            break;
+        case LUA_TTABLE:
+            // skip
+            if (isKey) {
+                Serial.println("Err: Tables as keys are not supported.'");
+                return false;
+            }
+            break;
+        case LUA_TNUMBER:
+            pck.pushNumber(lua_tonumber(L, idx));
+            break;
+        case LUA_TBOOLEAN:
+            pck.pushNumber(lua_toboolean(L, idx));
+            break;
+        case LUA_TSTRING:
+            // pck.pushString(lua_tostring(L, idx)); // <- this is cursed - fix it
+            break;
+        default:
+            pck.pushNil();
+            Serial.print("Err: Unsupported type '");
+            Serial.print(lua_typename(L, valueT));
+            Serial.println("'");
+            return false;
+        break;
+    }
+
+    return true;
+}
+
+void printLuaStack(lua_State* L) {
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        Serial.print(i);
+        Serial.print(": ");
+        printTypeAndValue(L, i);
+    }
+}
+
+// todo: max depth check -- don't want to stack overflow
+void processLuaTable(packet& pck, lua_State* L, int idx) {
+    pck.pushTableBegin();
+
+    // dont toally udnestand this etiher
+    // lua_pushvalue(L, idx);
+
     // dont totally understand this but it starts table iteration
     lua_pushnil(L);
 
@@ -286,74 +425,76 @@ void processLuaTable(lua_State* L, int idx) {
     // 3 (-1): param1.values[0]
     while (lua_next(L, idx) != 0) {
         indent();
-        Serial.println("packet::serialize: its a table");
-        indent();
-        printTypeAndValue(L, -2); // key
-    
-        int valueT = lua_type(L, -1); // value
-        if (valueT == LUA_TTABLE) {
-            // this makes a ?copy? of the table? and iterates over that without losing the original refernece?
-            indent();
-            Serial.println("{");
-            tab++;
-            lua_pushvalue(L, -1);
-            processLuaTable(L, lua_gettop(L));
-            // does one pop make sense here?...
-            // seems to work...
-            lua_pop(L, 1);
-            tab--;
-            indent();
-            Serial.println("}");
-        } else {
-            indent();
-            printTypeAndValue(L, -1);
+        Serial.println("packet::serialize: nextloop");
+        printLuaStack(L);
+
+        indent();  
+        if (pushLuaValue(pck, L, -2, true)) { // key
+            pushLuaValue(pck, L, -1, false); // value
+
+            int valueT = lua_type(L, -1);
+            if (valueT == LUA_TTABLE) {
+                // this makes a ?copy? of the table? and iterates over that without losing the original refernece?
+                indent();
+                Serial.println("{");
+                tab++;
+
+                // lua_pushvalue(L, -1);
+                processLuaTable(pck, L, lua_gettop(L));
+                // does one pop make sense here?...
+                // seems to work...
+                // lua_pop(L, -1);
+
+                tab--;
+                indent();
+                Serial.println("}");
+            } else {
+                indent();
+                printTypeAndValue(L, -1);
+            }
         }
 
         lua_pop(L, 1);
     }
+
+    // lua_pop(L, 1);
+
+    pck.pushTableEnd();
 }
 
 int lua_testPacket(lua_State* L) {
-    Serial.println("packet::serialize - ");
-    int t = lua_type(L, 1);
-    
-    Serial.println("Pre next == ");
-    for (int i = 1; i <= lua_gettop(L); i++) {
-        printTypeAndValue(L, i);
-    }
+    {
+        packet pck;
 
-    if (t == LUA_TTABLE) {
-        processLuaTable(L, 1);
-    } else {
-        Serial.print("packet::serialize: unsupported parameter type '");
-        Serial.print(lua_typename(L, t));
-        Serial.println("'.");
-    }
+        Serial.println("packet::serialize - ");
+        int t = lua_type(L, 1);
+        
+        Serial.println("Pre next == ");
+        printLuaStack(L);
 
-    Serial.println("Post next == ");
-    for (int i = 1; i <= lua_gettop(L); i++) {
-        printTypeAndValue(L, i);
+        if (t == LUA_TTABLE) {
+            processLuaTable(pck, L, 1);
+        } else {
+            Serial.print("packet::serialize: unsupported parameter type '");
+            Serial.print(lua_typename(L, t));
+            Serial.println("'.");
+        }
+
+        Serial.println("Post next == ");
+        printLuaStack(L);
+
+        Serial.println("PACKET: ");
+        for (size_t i = 0; i < pck.data.size(); i++) {
+            Serial.print("0x");
+            Serial.print(pck.data[i], HEX);
+            Serial.print(", ");
+        }
+        Serial.println(" | ");
+
+        lua_pop(L, 1);
     }
 
     return 1;
 }
 
-struct packet {
-    std::vector<uint8_t> data;
-
-    void serialize(lua_State *L) {
-        int t = lua_type(L, 1);
-        switch (t) {
-            case LUA_TTABLE:
-
-            break;
-
-            default:
-                Serial.print("packet::serialize: unsupported parameter type '");
-                Serial.print(lua_typename(L, t));
-                Serial.println("'.");
-        }
-    }
-
-};
 #endif

@@ -550,6 +550,7 @@ void loop() {
   {
     lua_pcall(L, 0, 0, 0);
   }
+
   //engine draw from main.lua
   lua_getglobal(L, "myrtle_draw");
   if (lua_isfunction(L, -1))
