@@ -319,6 +319,9 @@ struct packet {
     void pushTableEnd() { data.push_back(packet_stamp::table_end); }
 };
 
+#define DBG_SER 0
+#if DBG_SER
+
 void printTypeAndValue(lua_State* L, int idx) {
     int t = lua_type(L, idx);
     const char* tName = lua_typename(L, t);
@@ -358,6 +361,15 @@ void indent() {
     }
 }
 
+void printLuaStack(lua_State* L) {
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        Serial.print(i);
+        Serial.print(": ");
+        printTypeAndValue(L, i);
+    }
+}
+#endif
+
 bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
     if (isKey) {
         pck.pushTableKey();
@@ -365,7 +377,9 @@ bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
         pck.pushTableValue();
     }
 
+#if DBG_SER
     printTypeAndValue(L, idx);
+#endif
 
     int valueT = lua_type(L, idx);
     switch (valueT) {
@@ -400,20 +414,9 @@ bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
     return true;
 }
 
-void printLuaStack(lua_State* L) {
-    for (int i = 1; i <= lua_gettop(L); i++) {
-        Serial.print(i);
-        Serial.print(": ");
-        printTypeAndValue(L, i);
-    }
-}
-
 // todo: max depth check -- don't want to stack overflow
 void processLuaTable(packet& pck, lua_State* L, int idx) {
     pck.pushTableBegin();
-
-    // dont toally udnestand this etiher
-    // lua_pushvalue(L, idx);
 
     // dont totally understand this but it starts table iteration
     lua_pushnil(L);
@@ -423,40 +426,39 @@ void processLuaTable(packet& pck, lua_State* L, int idx) {
     // 2 (-2): param1.keys[0]
     // 3 (-1): param1.values[0]
     while (lua_next(L, idx) != 0) {
+#if DBG_SER
         indent();
         Serial.println("packet::serialize: nextloop");
-        printLuaStack(L);
 
         indent();  
+        printLuaStack(L);
+#endif
         if (pushLuaValue(pck, L, -2, true)) { // key
             pushLuaValue(pck, L, -1, false); // value
 
             int valueT = lua_type(L, -1);
             if (valueT == LUA_TTABLE) {
-                // this makes a ?copy? of the table? and iterates over that without losing the original refernece?
+#if DBG_SER
                 indent();
                 Serial.println("{");
                 tab++;
+#endif
 
-                // lua_pushvalue(L, -1);
                 processLuaTable(pck, L, lua_gettop(L));
-                // does one pop make sense here?...
-                // seems to work...
-                // lua_pop(L, -1);
-
+#if DBG_SER
                 tab--;
                 indent();
                 Serial.println("}");
+#endif
             } else {
+#if DBG_SER
                 indent();
-                printTypeAndValue(L, -1);
+#endif
             }
         }
 
         lua_pop(L, 1);
     }
-
-    // lua_pop(L, 1);
 
     pck.pushTableEnd();
 }
@@ -464,13 +466,13 @@ void processLuaTable(packet& pck, lua_State* L, int idx) {
 int lua_testPacket(lua_State* L) {
     {
         packet pck;
-
-        Serial.println("packet::serialize - ");
         int t = lua_type(L, 1);
-        
+
+#if DBG_SER
+        Serial.println("packet::serialize - ");
         Serial.println("Pre next == ");
         printLuaStack(L);
-
+#endif
         if (t == LUA_TTABLE) {
             processLuaTable(pck, L, 1);
         } else {
@@ -479,6 +481,7 @@ int lua_testPacket(lua_State* L) {
             Serial.println("'.");
         }
 
+#if DBG_SER
         Serial.println("Post next == ");
         printLuaStack(L);
 
@@ -489,7 +492,7 @@ int lua_testPacket(lua_State* L) {
             Serial.print(", ");
         }
         Serial.println(" | ");
-
+#endif
         lua_pop(L, 1);
     }
 
