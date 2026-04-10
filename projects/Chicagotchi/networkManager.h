@@ -1,6 +1,11 @@
+#ifndef _NETWORKMANAGER_H
+#define _NETWORKMANAGER_H
+
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>
+#include <lapi.h>
+#include <vector>
 
 // ESP-NOW broadcast address
 const uint8_t broadcastAddressFF[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -21,6 +26,7 @@ esp_now_peer_info_t peerInfoFF;
 const float SPASS_PERIOD_MS = 3000.0f;
 float spass_time = 0.0f;
 
+bool hasStreetPass = false;
 // special message that just says "hey I want to connect!"
 // todo: refine the packet system
 uint8_t discovery_message[64] = {
@@ -66,6 +72,8 @@ void SerialPrintMAC(const uint8_t* mac, const char* end = "") {
 // todo: make it add more than one
 void addPeer(const esp_now_recv_info_t* esp_now_info) {
     peerInit = true;
+    hasStreetPass = true;
+
     memcpy(peerInfo.peer_addr, esp_now_info->src_addr, 6);
     peerInfo.channel = 6;  
     peerInfo.encrypt = false;
@@ -220,3 +228,132 @@ bool networkSendPing() {
 
     return false;
 }
+
+bool consumeStreetpass() {
+    if (hasStreetPass) {
+        hasStreetPass = false;
+        return true;
+    }
+    return false;
+}
+
+void printTypeAndValue(lua_State* L, int idx) {
+    int t = lua_type(L, idx);
+    const char* tName = lua_typename(L, t);
+
+    Serial.print("type: ");
+    Serial.print(tName);
+    Serial.print(", value: ");
+    switch (t) {
+        case LUA_TNIL:
+            Serial.print("nil");
+            break;
+        case LUA_TTABLE:
+            Serial.print("{...}");
+            break;
+        case LUA_TNUMBER:
+            Serial.print(lua_tonumber(L, idx));
+            break;
+        case LUA_TBOOLEAN:
+            Serial.print(lua_toboolean(L, idx));
+            break;
+        case LUA_TSTRING:
+            Serial.print(lua_tostring(L, idx));
+            break;
+        default:
+            Serial.print("Err: Unsupported type '");
+            Serial.print(tName);
+            Serial.print("'");
+        break;
+    }
+    Serial.println("");
+}
+
+int tab = 0;
+void indent() {
+    for (int i=0; i<tab; i++) {
+        Serial.print("\t");
+    }
+}
+
+void processLuaTable(lua_State* L, int idx) {
+    // dont totally understand this but it starts table iteration
+    lua_pushnil(L);
+
+    // push keys onto the stack -- i.e.
+    // 1 (--): param1
+    // 2 (-2): param1.keys[0]
+    // 3 (-1): param1.values[0]
+    while (lua_next(L, idx) != 0) {
+        indent();
+        Serial.println("packet::serialize: its a table");
+        indent();
+        printTypeAndValue(L, -2); // key
+    
+        int valueT = lua_type(L, -1); // value
+        if (valueT == LUA_TTABLE) {
+            // this makes a ?copy? of the table? and iterates over that without losing the original refernece?
+            indent();
+            Serial.println("{");
+            tab++;
+            lua_pushvalue(L, -1);
+            processLuaTable(L, lua_gettop(L));
+            // does one pop make sense here?...
+            // seems to work...
+            lua_pop(L, 1);
+            tab--;
+            indent();
+            Serial.println("}");
+        } else {
+            indent();
+            printTypeAndValue(L, -1);
+        }
+
+        lua_pop(L, 1);
+    }
+}
+
+int lua_testPacket(lua_State* L) {
+    Serial.println("packet::serialize - ");
+    int t = lua_type(L, 1);
+    
+    Serial.println("Pre next == ");
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        printTypeAndValue(L, i);
+    }
+
+    if (t == LUA_TTABLE) {
+        processLuaTable(L, 1);
+    } else {
+        Serial.print("packet::serialize: unsupported parameter type '");
+        Serial.print(lua_typename(L, t));
+        Serial.println("'.");
+    }
+
+    Serial.println("Post next == ");
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        printTypeAndValue(L, i);
+    }
+
+    return 1;
+}
+
+struct packet {
+    std::vector<uint8_t> data;
+
+    void serialize(lua_State *L) {
+        int t = lua_type(L, 1);
+        switch (t) {
+            case LUA_TTABLE:
+
+            break;
+
+            default:
+                Serial.print("packet::serialize: unsupported parameter type '");
+                Serial.print(lua_typename(L, t));
+                Serial.println("'.");
+        }
+    }
+
+};
+#endif

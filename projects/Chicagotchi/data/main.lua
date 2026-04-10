@@ -13,11 +13,11 @@ myrtle.print = myrtlePrint
 myrtle.println = myrtlePrintln
 myrtle.setTextColor = myrtleSetTextColor
 
-
 myrtle.require("vector2.lua")
 myrtle.require("gameSceneManager.lua")
 myrtle.require("bitmapReader.lua")
 myrtle.require("miscTools.lua")
+myrtle.require("packets.lua")
 
 engineTime=0;
 
@@ -67,6 +67,10 @@ end
 
 sinDrive=0
 
+function myrtle_on_streetpass(peer)
+	-- get peer info
+	-- print(peer.name) -- ? maybe ?
+end
 
 function myrtle_update()
 	
@@ -74,6 +78,16 @@ function myrtle_update()
 	spriteObject.position.x = 100 + math.sin(sinDrive)*20
 	spriteObject.position.y = 32 + math.cos(sinDrive)*20
 	
+	myrtle.testPacket({
+		obj1 = 5,
+		obj2 = 3.5,
+		obj3 = "This is a string",
+		obj4 = {
+			obj1 = nil,
+			obj2 = "sneerf"
+		}
+	})
+
 	runGarbageCollector()
 end
 

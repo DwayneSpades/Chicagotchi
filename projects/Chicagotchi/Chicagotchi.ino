@@ -76,6 +76,8 @@
 
 //~ Slaps
 
+#include "networkManager.h"
+
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 uint32_t engineTime = 0;
@@ -482,8 +484,7 @@ void setup(void) {
   lua_register(L, "loadPixel", lua_loadPixel);
   lua_register(L, "drawSprite", lua_drawSprite);
   lua_register(L, "drawBitmap", lua_drawBitmap);
-
-  
+  lua_register(L, "testPacket", lua_testPacket);
 
   lua_register(L, "convertHex", lua_convertHex);
   lua_register(L, "myrtleRequire", lua_require);
@@ -503,6 +504,15 @@ void setup(void) {
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(0, 0);
 
+  if (consumeStreetpass()) {
+    lua_getglobal(L, "myrtle_on_streetpass");
+    if (lua_isfunction(L, -1))
+    {
+      //tft.println("ran myrtle load successfully");
+      lua_pcall(L, 0, 0, 0);
+    }
+  }
+  
   //load assets and game data from engine's load function in main.lua 
   lua_getglobal(L, "myrtle_load");
   if (lua_isfunction(L, -1))
