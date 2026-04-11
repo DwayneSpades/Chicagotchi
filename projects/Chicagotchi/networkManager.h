@@ -14,6 +14,7 @@
 // ESP-NOW broadcast address
 const uint8_t broadcastAddressFF[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
+bool netInit = false;
 bool peerInit = false;
 
 // a fun little flag to check if communications are working
@@ -319,10 +320,14 @@ void networkSetup() {
     Serial.println("###################");
 
     // Set device as a Wi-Fi Station
+    Serial.println("pre wifi mode");
+    delay(1000);
     WiFi.mode(WIFI_STA);
     Serial.println("wifi mode ok");
+    delay(1000);
     WiFi.setChannel(6);
     Serial.println("wifi channel ok");
+    delay(1000);
 
     // Init ESP-NOW
     if (esp_now_init() != ESP_OK) {
@@ -366,10 +371,13 @@ void networkSetup() {
     Serial.println("###################");
     Serial.println("everything ship-shape capn'!");
     Serial.println("###################");
+    netInit = true;
 }
 
 // call this to let the network manager tick
 void networkUpdate(float dt) {
+    if (!netInit) return;
+
     // broadcast loop
     spass_time += dt;
     if (spass_time >= SPASS_PERIOD_MS) {
@@ -381,11 +389,15 @@ void networkUpdate(float dt) {
 
 // call after checking this flag
 void networkClear() {
+    if (!netInit) return;
+
     pinged = false;
 }
 
 // sends a message
 bool networkSendPing() {
+    if (!netInit) return false;
+
     if (peerInit) {
         const char msg[64] = "Nice to meet you :)";
         return sendMsg(peerInfo.peer_addr, msg, sizeof(msg));

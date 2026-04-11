@@ -25,10 +25,8 @@
 #include <lvm.h>
 #include <lzio.h>
 
-#include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
-#include <Adafruit_ST7796S.h>
-#include <Adafruit_ST77xx.h>
+#include <esp_system.h>
 
 #include <stdio.h>
 #include <stddef.h>
@@ -441,6 +439,7 @@ void runScript(const char* fileName)
   }
 }
 
+#define _NETWORK_ 1
 
 void setup(void) {
   Serial.begin(115200);
@@ -501,7 +500,67 @@ void setup(void) {
   //luaL_dostring(L,"package.path = package.path .. ';./?.lua;/littlefs/?.lua'");
   runScript("main.lua");
   tft.println("Loaded Lua scripts successfully");
-  delay(2000);
+  
+  esp_reset_reason_t reason = esp_reset_reason();
+  tft.print("RESET REASON: ");
+  switch (reason) {
+    case esp_reset_reason_t::ESP_RST_UNKNOWN:
+    tft.println("UNKNOWN");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_POWERON:
+    tft.println("POWERON");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_SW:
+    tft.println("SOFTWARE");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_PANIC:
+    tft.println("PANIC !!!");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_INT_WDT:
+    case esp_reset_reason_t::ESP_RST_TASK_WDT:
+    case esp_reset_reason_t::ESP_RST_WDT:
+    tft.println("WATCH DOG");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_DEEPSLEEP:
+    tft.println("SLEEP");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_BROWNOUT:
+    tft.println("BROWNOUT!!!");
+    break;
+
+    case esp_reset_reason_t::ESP_RST_SDIO:
+    case esp_reset_reason_t::ESP_RST_USB:
+    case esp_reset_reason_t::ESP_RST_JTAG:
+      tft.println("PERIPHERAL");
+      break;
+
+    case esp_reset_reason_t::ESP_RST_EFUSE:
+      tft.println("EFUSE ERROR");
+      break;
+
+    case esp_reset_reason_t::ESP_RST_PWR_GLITCH:
+      tft.println("POWER GLITCH");
+      break;
+
+    case esp_reset_reason_t::ESP_RST_CPU_LOCKUP:
+      tft.println("CPU LOCKUP");
+      break;
+
+    default:
+      tft.print("unhandled case: ");
+      tft.println(reason);
+      break;
+  }
+  tft.println(F("fff"));
+  delay(3000);
+  networkSetup();
+
 
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
@@ -524,7 +583,9 @@ void setup(void) {
     lua_pcall(L, 0, 0, 0);
   }
   
+#if _NETWORK_
   networkSetup();
+#endif
   
   //delay(4000);
 
@@ -565,8 +626,10 @@ void loop() {
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
+#if _NETWORK_
   networkClear();
   networkUpdate(deltaTime);
+#endif
 
   canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
