@@ -88,11 +88,13 @@ local sy = 0;
 local recvData = nil
 
 function myrtle_on_packetrecv(packetTable)
+	myrtle.println("received packet! "..tostring(packetTable))
 	recvData = "{\n"
 	for k,v in pairs(recvData) do
 		recvData = "\t"..recvData.."("..k..", "..v..")\n"
 	end
 	recvData = recvData.."}"
+	myrtle.println("packet data: "..recvData)
 end
 
 function myrtle_update()
@@ -183,7 +185,7 @@ function myrtle_draw()
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
 	
 	if (recvData ~= nil) then
-		myrtlePrint(output)
+		myrtle.println(output)
 	end
 end
 

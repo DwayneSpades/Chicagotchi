@@ -359,6 +359,8 @@ int lua_println(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
 
+  Serial.print("lua_println: ");
+  Serial.println(stuff);
 	//create the drawable and push into the map
   canvas.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
@@ -381,6 +383,10 @@ int lua_setTextColor(lua_State* L)
 int lua_print(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
+  
+  Serial.print("lua_print: ");
+  Serial.println(stuff);
+
 	//create the drawable and push into the map
   tft.setTextColor(ST77XX_WHITE);
   tft.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);

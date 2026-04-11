@@ -114,7 +114,15 @@ size_t my_strlen_s(const char* buf, size_t max) {
 struct packet {
     std::vector<uint8_t> data;
 
-    static bool deserialize(lua_State* L, const uint8_t* buf, int len) {
+    packet() {}
+    packet(const uint8_t* buf, int len) {
+        data.insert(data.end(), buf, buf+len);
+    }
+
+    bool deserialize(lua_State* L) {
+        const uint8_t* buf = data.data();
+        size_t len = data.size();
+
         int safety = 0;
         while (lua_type(L, -1) == LUA_TSTRING) {
             if (safety++ > 100) {
@@ -127,8 +135,8 @@ struct packet {
             lua_pop(L, 1);
         }
 
-        if (lua_type(L, 1) != LUA_TTABLE) {
-            Serial.print("Abort! value at luaStack:1 was not a table. was instead: ");
+        if (lua_type(L, 1) != LUA_TNONE) {
+            Serial.print("Abort! unexpected value on the stack at luaStack:1: ");
             printTypeAndValue(L, 1);
             Serial.println("");
 
@@ -167,7 +175,6 @@ struct packet {
 #if DBG_SER
                     Serial.println("\t- packet_stamp::number");
 #endif
-                    i++;
                     // todo: copy eight bytes
                     lua_pushnumber(L, (double)buf[i]);
                     i += sizeof(double);
@@ -210,13 +217,11 @@ struct packet {
                     Serial.print("\t- packet_stamp::table_end");
 #endif
                     tableCount--;
-                    if (tableCount > 0) {
-                        lua_settable(L, -3);
-                        isKey = true;
+                    lua_settable(L, -3);
+                    isKey = true;
 #if DBG_SER
-                        Serial.print("\t- settable / clear key");
+                    Serial.print("\t- settable / clear key");
 #endif
-                    }
 
                     Serial.println("");
                     break;
@@ -262,6 +267,11 @@ struct packet {
             Serial.println("");
             return false;
         }
+
+#if DBG_SER
+        Serial.println("Successful deserialization!!!");
+        printLuaStack(L);
+#endif
         return true;
     }
 
@@ -309,6 +319,10 @@ struct packet {
     void pushTableValue() { data.push_back(packet_stamp::table_value); }
     void pushTableEnd() { data.push_back(packet_stamp::table_end); }
 };
+
+#define MAX_PACKETS 10
+std::vector<packet> packets;
+
 
 // timing
 const float SPASS_PERIOD_MS = 3000.0f;
@@ -431,15 +445,20 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
             addPeer(esp_now_info);
         }
     } else {
-        if (packet::deserialize(L, data, data_len)) {
-            lua_getglobal(L, "myrtle_on_packetrecv");
-            if (lua_isfunction(L, -1)) {
-                lua_pcall(L, 0, 0, 0);
-            }
-        } else {
-            Serial.println("Error when deserializing...");
+#if DBG_SER
+        Serial.print("Pushing a packet: ");
+        for (int i = 0; i < std::min(4, data_len); i++){
+            Serial.print("0x");
+            Serial.print(data[i], HEX);
+            Serial.print(", ");
         }
-
+        Serial.println("");
+#endif
+        if (packets.size() < MAX_PACKETS) {
+            packets.push_back(packet(data, data_len));
+        } else {
+            Serial.println("Error: dropping this packet -- i got too many.");
+        }
         Serial.println("pinged!");
         pinged = true;
     }
@@ -517,6 +536,35 @@ void networkUpdate(float dt) {
         broadcastDiscoveryMessage();
         return;
     }
+    
+    for (size_t i = 0; i < packets.size(); i++){
+#if DBG_SER
+        Serial.print("packet(");
+        Serial.print(i);
+        Serial.print(") ");
+#endif
+        if (packets[i].deserialize(L)) {
+            lua_getglobal(L, "myrtle_on_packetrecv");
+            if (lua_isfunction(L, -1)) {
+                Serial.print("calling: ");
+
+                // todo: generic pcall handler
+                int status = lua_pcall(L, 0, 0, 0);
+                if (status != LUA_OK) {
+                    Serial.print("Lua error: ");
+                    Serial.println(lua_tostring(L, -1));
+                    lua_pop(L, 1);
+                }
+            } else {
+                Serial.println("Wasn't a func :P");
+            }
+        } else {
+            lua_settop(L, 0);
+            Serial.println("Error when deserializing...");
+        }
+    }
+
+    packets.clear();
 }
 
 // call after checking this flag
