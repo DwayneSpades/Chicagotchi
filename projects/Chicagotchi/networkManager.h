@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <string>
 
+#include "luaState.h"
+
 // ESP-NOW broadcast address
 const uint8_t broadcastAddressFF[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
@@ -23,6 +25,157 @@ esp_now_peer_info_t peerInfo;
 
 // this one is just for broadcast address
 esp_now_peer_info_t peerInfoFF;
+
+namespace packet_stamp {
+    // primitives
+    const uint8_t nil = 0x00;
+    const uint8_t number = 0x01;
+    const uint8_t boolean = 0x02;
+    const uint8_t string = 0x03;
+
+    // tables
+    const uint8_t table_begin = 0x04;
+    const uint8_t table_key = 0x05;
+    const uint8_t table_value = 0x06;
+    const uint8_t table_end = 0x07;
+}
+
+#define MAX_STR_SIZE 0xFFFF
+struct packet_str_data {
+    char buffer[MAX_STR_SIZE];
+    uint16_t size = 0;
+};
+
+// what
+size_t my_strlen_s(const char* buf, size_t max) {
+    for (size_t i = 0; i < max; i++){
+        if (*buf == 0x0) {
+            return i+1;
+        }
+
+        buf++;
+    }
+
+    return max;
+}
+
+struct packet {
+    std::vector<uint8_t> data;
+
+    static bool deserialize(lua_State* L, const uint8_t* buf, int len) {
+        lua_newtable(L);
+
+        bool isKey = true; // false = isValue
+        int tableCount = 0;
+
+        for (int i = 0; i < len; i++) {
+            switch(buf[i]) {
+                // Primitives
+                case packet_stamp::nil:
+                    if (isKey) {
+                        Serial.println("Abort! nils cannot be keys.");
+                        return false;
+                    } else {
+                        lua_pushnil(L);
+                    }
+                    break;
+                case packet_stamp::boolean:
+                    lua_pushboolean(L, (int)buf[i]);
+                    break;
+                case packet_stamp::number:
+                    // todo: copy eight bytes
+                    lua_pushnumber(L, (double)buf[i]);
+                    break;
+                case packet_stamp::string:
+                    lua_pushstring(L, (const char*)(buf+i));
+                    break;
+
+                // Tables
+                case packet_stamp::table_begin:
+                    if (isKey) {
+                        Serial.println("Abort! Tables cannot be keys.");
+                        return false;
+                    } else {
+                        tableCount++;
+                        lua_newtable(L);
+                    }
+                    break;
+                case packet_stamp::table_end:
+                    tableCount--;
+                    if (tableCount > 0) {
+                        lua_settable(L, -3);
+                    }
+                    break;
+
+                // Key/Value
+                case packet_stamp::table_key:
+                    // isKey starts true
+                    // if its false, we need to pop a key/value pair
+                    if (!isKey) {
+                        lua_settable(L, -3);
+                    }
+                    isKey = true;
+                    break;
+                    
+                case packet_stamp::table_value:
+                    isKey = false;
+                    break;
+            }
+        }
+
+        if (tableCount > 0) {
+            Serial.print("Abort! somehow ended up with a tableCount > 0: ");
+            Serial.print(tableCount);
+            Serial.println("");
+            return false;
+        }
+        return true;
+    }
+
+    void pushNil() {
+        data.push_back(packet_stamp::nil);
+    }
+
+    void pushNumber(double value) {
+        data.push_back(packet_stamp::number);
+        data.insert(data.end(), (uint8_t*)&value, (uint8_t*)(&value + 1));
+    }
+
+    void pushBoolean(bool value) {
+        data.push_back(packet_stamp::boolean);
+        data.push_back((uint8_t)value);
+    }
+
+    void pushString(const char* str) {
+        packet_str_data str_data;
+        size_t size = my_strlen_s(str, MAX_STR_SIZE);
+        
+        // was copying a buffer here... and it crashed when i did that...
+        // not sure why, it was stack-allocated...
+        if (str[size - 1] != 0x0) { // jic
+            Serial.print("STRING WAS TOO BIG!: ");
+            for (size_t i = 0; i < size; i++){
+                Serial.print(str[i]);
+            }
+            Serial.println("");
+        }
+
+        data.push_back(packet_stamp::string);
+
+        // this was also crashing for similar reasons...
+        // trying to do an insert across the whole string...
+        uint16_t size_small = (uint16_t)size;
+        data.insert(data.end(), (uint8_t*)&size_small, (uint8_t*)(&size_small + 1));
+        for (size_t i = 0; i < size; i++) {
+            data.push_back((uint8_t)str[i]);
+        }
+    }
+
+    void pushTableBegin() { data.push_back(packet_stamp::table_begin); }
+    void pushTableKey() { data.push_back(packet_stamp::table_key); }
+    void pushTableValue() { data.push_back(packet_stamp::table_value); }
+    void pushTableEnd() { data.push_back(packet_stamp::table_end); }
+};
 
 // timing
 const float SPASS_PERIOD_MS = 3000.0f;
@@ -130,6 +283,7 @@ void OnDataSent(const wifi_tx_info_t *mac_addr, esp_now_send_status_t status) {
     SerialPrintMAC(mac_addr->des_addr, "\n");
 }
 
+
 // callback for when data is received
 void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, int data_len) {
     Serial.println("Recv data: ");
@@ -144,6 +298,16 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
             addPeer(esp_now_info);
         }
     } else {
+        lua_getglobal(L, "myrtle_on_packetrecv");
+        if (lua_isfunction(L, -1))
+        {
+            if (packet::deserialize(L, data, data_len)) {
+                lua_pcall(L, 0, 0, 0);
+            } else {
+                Serial.println("Error when deserializing...");
+            }
+        }
+
         Serial.println("pinged!");
         pinged = true;
     }
@@ -238,88 +402,7 @@ bool consumeStreetpass() {
     return false;
 }
 
-namespace packet_stamp {
-    // primitives
-    const uint8_t nil = 0x00;
-    const uint8_t number = 0x01;
-    const uint8_t boolean = 0x02;
-    const uint8_t string = 0x03;
-
-    // tables
-    const uint8_t table_begin = 0x04;
-    const uint8_t table_key = 0x05;
-    const uint8_t table_value = 0x06;
-    const uint8_t table_end = 0x07;
-}
-
-#define MAX_STR_SIZE 0xFFFF
-struct packet_str_data {
-    char buffer[MAX_STR_SIZE];
-    uint16_t size = 0;
-};
-
-// what
-size_t my_strlen_s(const char* buf, size_t max) {
-    for (size_t i = 0; i < max; i++){
-        if (*buf == 0x0) {
-            return i+1;
-        }
-
-        buf++;
-    }
-
-    return max;
-}
-
-struct packet {
-    std::vector<uint8_t> data;
-
-    void pushNil() {
-        data.push_back(packet_stamp::nil);
-    }
-
-    void pushNumber(double value) {
-        data.push_back(packet_stamp::number);
-        data.insert(data.end(), (uint8_t*)&value, (uint8_t*)(&value + 1));
-    }
-
-    void pushBoolean(bool value) {
-        data.push_back(packet_stamp::boolean);
-        data.push_back((uint8_t)value);
-    }
-
-    void pushString(const char* str) {
-        packet_str_data str_data;
-        size_t size = my_strlen_s(str, MAX_STR_SIZE);
-        
-        // was copying a buffer here... and it crashed when i did that...
-        // not sure why, it was stack-allocated...
-        if (str[size - 1] != 0x0) { // jic
-            Serial.print("STRING WAS TOO BIG!: ");
-            for (size_t i = 0; i < size; i++){
-                Serial.print(str[i]);
-            }
-            Serial.println("");
-        }
-
-        data.push_back(packet_stamp::string);
-
-        // this was also crashing for similar reasons...
-        // trying to do an insert across the whole string...
-        uint16_t size_small = (uint16_t)size;
-        data.insert(data.end(), (uint8_t*)&size_small, (uint8_t*)(&size_small + 1));
-        for (size_t i = 0; i < size; i++) {
-            data.push_back((uint8_t)str[i]);
-        }
-    }
-
-    void pushTableBegin() { data.push_back(packet_stamp::table_begin); }
-    void pushTableKey() { data.push_back(packet_stamp::table_key); }
-    void pushTableValue() { data.push_back(packet_stamp::table_value); }
-    void pushTableEnd() { data.push_back(packet_stamp::table_end); }
-};
-
-#define DBG_SER 0
+#define DBG_SER 1
 #if DBG_SER
 
 void printTypeAndValue(lua_State* L, int idx) {
@@ -464,38 +547,39 @@ void processLuaTable(packet& pck, lua_State* L, int idx) {
 }
 
 int lua_testPacket(lua_State* L) {
-    {
-        packet pck;
-        int t = lua_type(L, 1);
+    packet pck;
+    int t = lua_type(L, 1);
 
 #if DBG_SER
-        Serial.println("packet::serialize - ");
-        Serial.println("Pre next == ");
-        printLuaStack(L);
+    Serial.println("packet::serialize - ");
+    Serial.println("Pre next == ");
+    printLuaStack(L);
 #endif
-        if (t == LUA_TTABLE) {
-            processLuaTable(pck, L, 1);
-        } else {
-            Serial.print("packet::serialize: unsupported parameter type '");
-            Serial.print(lua_typename(L, t));
-            Serial.println("'.");
-        }
-
-#if DBG_SER
-        Serial.println("Post next == ");
-        printLuaStack(L);
-
-        Serial.println("PACKET: ");
-        for (size_t i = 0; i < pck.data.size(); i++) {
-            Serial.print("0x");
-            Serial.print(pck.data[i], HEX);
-            Serial.print(", ");
-        }
-        Serial.println(" | ");
-#endif
-        lua_pop(L, 1);
+    if (t == LUA_TTABLE) {
+        processLuaTable(pck, L, 1);
+    } else {
+        Serial.print("packet::serialize: unsupported parameter type '");
+        Serial.print(lua_typename(L, t));
+        Serial.println("'.");
     }
 
+#if DBG_SER
+    Serial.println("Post next == ");
+    printLuaStack(L);
+
+    Serial.println("PACKET: ");
+    for (size_t i = 0; i < pck.data.size(); i++) {
+        Serial.print("0x");
+        Serial.print(pck.data[i], HEX);
+        Serial.print(", ");
+    }
+    Serial.println(" | ");
+#endif
+    lua_pop(L, 1);
+
+    if (peerInit) {
+        sendMsg(peerInfo.peer_addr, (const char*)pck.data.data(), pck.data.size());
+    }
     return 1;
 }
 

@@ -87,6 +87,14 @@ local sy = 0;
 
 local recvData = nil
 
+function myrtle_on_packetrecv(packetTable)
+	recvData = "{\n"
+	for k,v in pairs(recvData) do
+		recvData = "\t"..recvData.."("..k..", "..v..")\n"
+	end
+	recvData = recvData.."}"
+end
+
 function myrtle_update()
 	
 	sinDrive = sinDrive + 0.05
@@ -175,10 +183,6 @@ function myrtle_draw()
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
 	
 	if (recvData ~= nil) then
-		local output = ""
-		for k,v in pairs(recvData) do
-			output = output.."("..k..", "..v..")\n"
-		end
 		myrtlePrint(output)
 	end
 end

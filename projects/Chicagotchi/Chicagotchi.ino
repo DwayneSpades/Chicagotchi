@@ -76,6 +76,7 @@
 
 //~ Slaps
 
+#include "luaState.h"
 #include "button.h"
 #include "networkManager.h"
 
@@ -415,10 +416,6 @@ int lua_require(lua_State* L)
   return 1;
 }
 
-
-//SET UP LUA State AS A GLOBAL
-lua_State* L = luaL_newstate();
-
 void runScript(const char* fileName)
 {
 
@@ -527,6 +524,7 @@ void setup(void) {
     lua_pcall(L, 0, 0, 0);
   }
   
+  networkSetup();
   
   //delay(4000);
 
@@ -544,7 +542,6 @@ void setup(void) {
 void loop() {
   previousTime = engineTime;
   
-
   //canvas lets the draw to screen be not have flicker
   //memset(_screenBuffer.buffer, 0, 32400*2);
   canvas.fillScreen(0);
@@ -568,8 +565,15 @@ void loop() {
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
+  networkClear();
+  networkUpdate(deltaTime);
+
   canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
+
+  if (peerInit) {
+    canvas.println("Connected!");
+  }
 
   //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
