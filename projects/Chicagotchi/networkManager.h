@@ -29,6 +29,55 @@ esp_now_peer_info_t peerInfoFF;
 
 #define DBG_SER 1
 
+void printTypeAndValue(lua_State* L, int idx) {
+    int t = lua_type(L, idx);
+    const char* tName = lua_typename(L, t);
+
+    Serial.print("type: ");
+    Serial.print(tName);
+    Serial.print(", value: ");
+    switch (t) {
+        case LUA_TNIL:
+            Serial.print("nil");
+            break;
+        case LUA_TTABLE:
+            Serial.print("{...}");
+            break;
+        case LUA_TNUMBER:
+            Serial.print(lua_tonumber(L, idx));
+            break;
+        case LUA_TBOOLEAN:
+            Serial.print(lua_toboolean(L, idx));
+            break;
+        case LUA_TSTRING:
+            Serial.print(lua_tostring(L, idx));
+            break;
+        default:
+            Serial.print("Err: Unsupported type '");
+            Serial.print(tName);
+            Serial.print("'");
+        break;
+    }
+    Serial.println("");
+}
+
+#if DBG_SER
+int tab = 0;
+void indent() {
+    for (int i=0; i<tab; i++) {
+        Serial.print("\t");
+    }
+}
+
+void printLuaStack(lua_State* L) {
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        Serial.print(i);
+        Serial.print(": ");
+        printTypeAndValue(L, i);
+    }
+}
+#endif
+
 namespace packet_stamp {
     // primitives
     const uint8_t nil = 0x00;
@@ -66,13 +115,32 @@ struct packet {
     std::vector<uint8_t> data;
 
     static bool deserialize(lua_State* L, const uint8_t* buf, int len) {
-        lua_newtable(L);
+        int safety = 0;
+        while (lua_type(L, -1) == LUA_TSTRING) {
+            if (safety++ > 100) {
+                Serial.println("whoops");
+                return false;
+            }
+            Serial.println("Error?: ");
+            Serial.print("\t");
+            Serial.println(lua_tostring(L, -1));
+            lua_pop(L, 1);
+        }
+
+        if (lua_type(L, 1) != LUA_TTABLE) {
+            Serial.print("Abort! value at luaStack:1 was not a table. was instead: ");
+            printTypeAndValue(L, 1);
+            Serial.println("");
+
+            return false;
+        }
 
         bool isKey = true; // false = isValue
         int tableCount = 0;
 
 #if DBG_SER
-                    Serial.println("packet::deserialize!");
+        Serial.println("packet::deserialize!");
+        printLuaStack(L);
 #endif
         for (int i = 0; i < len; i++) {
             switch(buf[i]) {
@@ -139,12 +207,18 @@ struct packet {
                     break;
                 case packet_stamp::table_end:
 #if DBG_SER
-                    Serial.println("\t- packet_stamp::table_end");
+                    Serial.print("\t- packet_stamp::table_end");
 #endif
                     tableCount--;
                     if (tableCount > 0) {
                         lua_settable(L, -3);
+                        isKey = true;
+#if DBG_SER
+                        Serial.print("\t- settable / clear key");
+#endif
                     }
+
+                    Serial.println("");
                     break;
 
                 // Key/Value
@@ -156,10 +230,16 @@ struct packet {
                     // if its false, we need to pop a key/value pair
                     if (!isKey) {
                         lua_settable(L, -3);
-                    }
 #if DBG_SER
-                    Serial.println(". settable ok");
+                        Serial.print(". settable ok");
 #endif
+                    } else {
+#if DBG_SER
+                        Serial.print(" - key");
+#endif
+                    }
+
+                    Serial.println("");
                     isKey = true;
                     break;
                     
@@ -170,6 +250,10 @@ struct packet {
                     isKey = false;
                     break;
             }
+            
+#if DBG_SER
+            printLuaStack(L);
+#endif
         }
 
         if (tableCount > 0) {
@@ -347,14 +431,13 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
             addPeer(esp_now_info);
         }
     } else {
-        lua_getglobal(L, "myrtle_on_packetrecv");
-        if (lua_isfunction(L, -1))
-        {
-            if (packet::deserialize(L, data, data_len)) {
+        if (packet::deserialize(L, data, data_len)) {
+            lua_getglobal(L, "myrtle_on_packetrecv");
+            if (lua_isfunction(L, -1)) {
                 lua_pcall(L, 0, 0, 0);
-            } else {
-                Serial.println("Error when deserializing...");
             }
+        } else {
+            Serial.println("Error when deserializing...");
         }
 
         Serial.println("pinged!");
@@ -429,6 +512,7 @@ void networkUpdate(float dt) {
     // broadcast loop
     spass_time += dt;
     if (spass_time >= SPASS_PERIOD_MS) {
+        Serial.println("Broadcasting Discovery Message");
         spass_time -= SPASS_PERIOD_MS;
         broadcastDiscoveryMessage();
         return;
@@ -461,56 +545,6 @@ bool consumeStreetpass() {
     }
     return false;
 }
-
-#if DBG_SER
-
-void printTypeAndValue(lua_State* L, int idx) {
-    int t = lua_type(L, idx);
-    const char* tName = lua_typename(L, t);
-
-    Serial.print("type: ");
-    Serial.print(tName);
-    Serial.print(", value: ");
-    switch (t) {
-        case LUA_TNIL:
-            Serial.print("nil");
-            break;
-        case LUA_TTABLE:
-            Serial.print("{...}");
-            break;
-        case LUA_TNUMBER:
-            Serial.print(lua_tonumber(L, idx));
-            break;
-        case LUA_TBOOLEAN:
-            Serial.print(lua_toboolean(L, idx));
-            break;
-        case LUA_TSTRING:
-            Serial.print(lua_tostring(L, idx));
-            break;
-        default:
-            Serial.print("Err: Unsupported type '");
-            Serial.print(tName);
-            Serial.print("'");
-        break;
-    }
-    Serial.println("");
-}
-
-int tab = 0;
-void indent() {
-    for (int i=0; i<tab; i++) {
-        Serial.print("\t");
-    }
-}
-
-void printLuaStack(lua_State* L) {
-    for (int i = 1; i <= lua_gettop(L); i++) {
-        Serial.print(i);
-        Serial.print(": ");
-        printTypeAndValue(L, i);
-    }
-}
-#endif
 
 bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
     if (isKey) {

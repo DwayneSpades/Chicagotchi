@@ -443,6 +443,9 @@ void runScript(const char* fileName)
 
 void setup(void) {
   Serial.begin(115200);
+  delay(500);
+  Serial.println("");
+  Serial.println("");
 
   // turn on backlite
   pinMode(TFT_BACKLITE, OUTPUT);
@@ -502,54 +505,56 @@ void setup(void) {
   tft.println("Loaded Lua scripts successfully");
   
   esp_reset_reason_t reason = esp_reset_reason();
+  const char* strReason = "unexpected value";
   tft.print("RESET REASON: ");
+  Serial.print("RESET REASON: ");
   switch (reason) {
     case esp_reset_reason_t::ESP_RST_UNKNOWN:
-    tft.println("UNKNOWN");
+      strReason = "UNKNOWN";
     break;
 
     case esp_reset_reason_t::ESP_RST_POWERON:
-    tft.println("POWERON");
+      strReason = "POWERON";
     break;
 
     case esp_reset_reason_t::ESP_RST_SW:
-    tft.println("SOFTWARE");
+      strReason = "SOFTWARE";
     break;
 
     case esp_reset_reason_t::ESP_RST_PANIC:
-    tft.println("PANIC !!!");
+      strReason = "PANIC !!!";
     break;
 
     case esp_reset_reason_t::ESP_RST_INT_WDT:
     case esp_reset_reason_t::ESP_RST_TASK_WDT:
     case esp_reset_reason_t::ESP_RST_WDT:
-    tft.println("WATCH DOG");
+      strReason = "WATCH DOG";
     break;
 
     case esp_reset_reason_t::ESP_RST_DEEPSLEEP:
-    tft.println("SLEEP");
+      strReason = "SLEEP";
     break;
 
     case esp_reset_reason_t::ESP_RST_BROWNOUT:
-    tft.println("BROWNOUT!!!");
+      strReason = "BROWNOUT!!!";
     break;
 
     case esp_reset_reason_t::ESP_RST_SDIO:
     case esp_reset_reason_t::ESP_RST_USB:
     case esp_reset_reason_t::ESP_RST_JTAG:
-      tft.println("PERIPHERAL");
+      strReason = "PERIPHERAL";
       break;
 
     case esp_reset_reason_t::ESP_RST_EFUSE:
-      tft.println("EFUSE ERROR");
+      strReason = "EFUSE ERROR";
       break;
 
     case esp_reset_reason_t::ESP_RST_PWR_GLITCH:
-      tft.println("POWER GLITCH");
+      strReason = "POWER GLITCH";
       break;
 
     case esp_reset_reason_t::ESP_RST_CPU_LOCKUP:
-      tft.println("CPU LOCKUP");
+      strReason = "CPU LOCKUP";
       break;
 
     default:
@@ -557,7 +562,8 @@ void setup(void) {
       tft.println(reason);
       break;
   }
-  tft.println(F("fff"));
+  tft.println(strReason);
+  Serial.println(strReason);
   delay(3000);
   networkSetup();
 
