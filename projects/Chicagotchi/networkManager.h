@@ -27,6 +27,8 @@ esp_now_peer_info_t peerInfo;
 // this one is just for broadcast address
 esp_now_peer_info_t peerInfoFF;
 
+#define DBG_SER 1
+
 namespace packet_stamp {
     // primitives
     const uint8_t nil = 0x00;
@@ -69,10 +71,16 @@ struct packet {
         bool isKey = true; // false = isValue
         int tableCount = 0;
 
+#if DBG_SER
+                    Serial.println("packet::deserialize!");
+#endif
         for (int i = 0; i < len; i++) {
             switch(buf[i]) {
                 // Primitives
                 case packet_stamp::nil:
+#if DBG_SER
+                    Serial.println("\t- packet_stamp::nil");
+#endif
                     if (isKey) {
                         Serial.println("Abort! nils cannot be keys.");
                         return false;
@@ -81,19 +89,47 @@ struct packet {
                     }
                     break;
                 case packet_stamp::boolean:
+#if DBG_SER
+                    Serial.println("\t- packet_stamp::boolean");
+#endif
+                    i++;
                     lua_pushboolean(L, (int)buf[i]);
                     break;
                 case packet_stamp::number:
+#if DBG_SER
+                    Serial.println("\t- packet_stamp::number");
+#endif
+                    i++;
                     // todo: copy eight bytes
                     lua_pushnumber(L, (double)buf[i]);
+                    i += sizeof(double);
                     break;
                 case packet_stamp::string:
-                    lua_pushstring(L, (const char*)(buf+i));
+                {
+                    i++;
+                    uint16_t size = buf[i] | (buf[i+1] << 8);
+                    i += sizeof(uint16_t);
+                    char strbuf[MAX_STR_SIZE];
+                    memcpy(strbuf, buf + i, sizeof(char) * size);
+                    strbuf[size - 1] = 0x0; // jic
+#if DBG_SER
+                    Serial.print("\t- packet_stamp::string: size=");
+                    Serial.print(size);
+                    Serial.print(", ");
+                    Serial.print(strbuf);
+                    Serial.println("");
+#endif
+                    lua_pushstring(L, strbuf);
+                    i += size - 1;
+                }
                     break;
 
                 // Tables
                 case packet_stamp::table_begin:
-                    if (isKey) {
+#if DBG_SER
+                    Serial.println("\t- packet_stamp::table_begin");
+#endif
+                    if (isKey && tableCount > 0) {
                         Serial.println("Abort! Tables cannot be keys.");
                         return false;
                     } else {
@@ -102,6 +138,9 @@ struct packet {
                     }
                     break;
                 case packet_stamp::table_end:
+#if DBG_SER
+                    Serial.println("\t- packet_stamp::table_end");
+#endif
                     tableCount--;
                     if (tableCount > 0) {
                         lua_settable(L, -3);
@@ -110,15 +149,24 @@ struct packet {
 
                 // Key/Value
                 case packet_stamp::table_key:
+#if DBG_SER
+                    Serial.print("\t- packet_stamp::table_key");
+#endif
                     // isKey starts true
                     // if its false, we need to pop a key/value pair
                     if (!isKey) {
                         lua_settable(L, -3);
                     }
+#if DBG_SER
+                    Serial.println(". settable ok");
+#endif
                     isKey = true;
                     break;
                     
                 case packet_stamp::table_value:
+#if DBG_SER
+                    Serial.println("\t- packet_stamp::table_value");
+#endif
                     isKey = false;
                     break;
             }
@@ -414,7 +462,6 @@ bool consumeStreetpass() {
     return false;
 }
 
-#define DBG_SER 1
 #if DBG_SER
 
 void printTypeAndValue(lua_State* L, int idx) {
