@@ -76,6 +76,7 @@
 
 //~ Slaps
 
+#include "button.h"
 #include "networkManager.h"
 
 // Use dedicated hardware SPI pins
@@ -486,6 +487,11 @@ void setup(void) {
   lua_register(L, "drawBitmap", lua_drawBitmap);
   lua_register(L, "testPacket", lua_testPacket);
 
+  lua_register(L, "buttonDown", lua_buttonDown);
+  lua_register(L, "buttonUp", lua_buttonUp);
+  lua_register(L, "buttonHeld", lua_buttonHeld);
+  lua_register(L, "buttonUnheld", lua_buttonUnheld);
+
   lua_register(L, "convertHex", lua_convertHex);
   lua_register(L, "myrtleRequire", lua_require);
   lua_register(L, "myrtlePrintln", lua_println);
@@ -544,6 +550,7 @@ void loop() {
   canvas.fillScreen(0);
   canvas.setCursor(0, 0);
 
+  updateButtons();
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
   if (lua_isfunction(L, -1))
