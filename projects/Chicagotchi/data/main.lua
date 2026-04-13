@@ -90,10 +90,10 @@ local recvData = nil
 function myrtle_on_packetrecv(packetTable)
 	myrtle.println("received packet! "..tostring(packetTable))
 	recvData = "{\n"
-	for k,v in pairs(recvData) do
-		recvData = "\t"..recvData.."("..k..", "..v..")\n"
+	for k,v in pairs(packetTable) do
+		recvData = recvData.."\t"..tostring(k)..": "..tostring(v).."\n"
 	end
-	recvData = recvData.."}"
+	recvData = recvData.."}\n"
 	myrtle.println("packet data: "..recvData)
 end
 
@@ -184,9 +184,6 @@ function myrtle_draw()
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
 	
-	if (recvData ~= nil) then
-		myrtle.println(output)
-	end
 end
 
 --call update from C++ loop

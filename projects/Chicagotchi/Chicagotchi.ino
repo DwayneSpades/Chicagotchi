@@ -174,6 +174,7 @@ private:
 
 sprite::sprite(int _w, int _h, int len)
 {
+  Serial.println("sprite alloc");
   width = _w;
   height = _h;
 
@@ -196,6 +197,7 @@ int lua_createSprite(lua_State* L)
   int len = (int)lua_tonumber(L, 2);
   int w = (int)lua_tonumber(L, 3);
   int h = (int)lua_tonumber(L, 4);
+  Serial.println("sprite alloc 2");
 
   sprites[name] = new sprite(w,h,len);
   
@@ -614,26 +616,41 @@ void setup(void) {
 
 void loop() {
   previousTime = engineTime;
-  
+
   //canvas lets the draw to screen be not have flicker
   //memset(_screenBuffer.buffer, 0, 32400*2);
   canvas.fillScreen(0);
   canvas.setCursor(0, 0);
 
   updateButtons();
+  printLuaStack(L);
+  Serial.println("pre myrtle_update");
+  printLuaStack(L);
+
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
   if (lua_isfunction(L, -1))
   {
-    lua_pcall(L, 0, 0, 0);
+    lua_pcall_custom(L, 0, 0, 0);
   }
 
-  //engine draw from main.lua
+  Serial.println("pre myrtle_draw");
+  printLuaStack(L);
+
+  // ok so what i know is -- if i do the deserialization it causes the issue
+  // there still are random crashes after deserializing that i dont understand
+  // but after i deserialize *sometimes* draw/update will start pushing nils onto the stack
+
+  // i tried doing lua_gc because sometimes it just says "not enough memory"
+  // when attempting to call update/draw
   lua_getglobal(L, "myrtle_draw");
   if (lua_isfunction(L, -1))
   {
-    lua_pcall(L, 0, 0, 0);
+    lua_pcall_custom(L, 0, 0, 0);
   }
+
+  Serial.println("post myrtle_draw");
+  printLuaStack(L);
 
   engineTime = millis();
   deltaTime = engineTime - previousTime;
@@ -642,14 +659,36 @@ void loop() {
   networkClear();
   networkUpdate(deltaTime);
 #endif
+  Serial.println("post network update");
+  printLuaStack(L);
 
+/*
   canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
 
   if (peerInit) {
     canvas.println("Connected!");
   }
-
+*/
   //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+
+  printLuaStack(L);
+  // we outta memory
+  if (lua_gc(L, LUA_GCCOLLECT, 0) != LUA_OK) {
+    Serial.println("ERROR WHILE GC.");
+  }
+  printLuaStack(L);
+
+  if (lua_gettop(L) > 0) {
+    int t = lua_type(L, 1);
+    if (t == LUA_TNIL) {
+      Serial.println("ruh-roh");
+      lua_pop(L, -1);
+    }
+  }
+
+  Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
+  Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
+  Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
 }

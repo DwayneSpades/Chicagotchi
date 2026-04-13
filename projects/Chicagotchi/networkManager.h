@@ -70,10 +70,14 @@ void indent() {
 }
 
 void printLuaStack(lua_State* L) {
-    for (int i = 1; i <= lua_gettop(L); i++) {
-        Serial.print(i);
-        Serial.print(": ");
-        printTypeAndValue(L, i);
+    if (lua_gettop(L) < 1) {
+        Serial.println("0: printLuaStack: lua_gettop <= 0");
+    } else {
+        for (int i = 1; i <= lua_gettop(L); i++) {
+            Serial.print(i);
+            Serial.print(": ");
+            printTypeAndValue(L, i);
+        }
     }
 }
 #endif
@@ -119,6 +123,10 @@ struct packet {
         data.insert(data.end(), buf, buf+len);
     }
 
+    ~packet() {
+        data.clear();
+    }
+
     bool deserialize(lua_State* L) {
         const uint8_t* buf = data.data();
         size_t len = data.size();
@@ -135,8 +143,8 @@ struct packet {
             lua_pop(L, 1);
         }
 
-        if (lua_type(L, 1) != LUA_TNONE) {
-            Serial.print("Abort! unexpected value on the stack at luaStack:1: ");
+        if (lua_type(L, 1) != LUA_TFUNCTION) {
+            Serial.print("Abort! unexpected non-function value on the stack at luaStack:1: ");
             printTypeAndValue(L, 1);
             Serial.println("");
 
@@ -437,6 +445,8 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
     Serial.println((const char*)data);
     Serial.println("-");
 
+    delay(100);
+
     if (isDiscoveryMessage(data, data_len)) {
         Serial.println("Peer found: ");
         SerialPrintMAC(esp_now_info->src_addr, "\n");
@@ -471,13 +481,13 @@ void networkSetup() {
 
     // Set device as a Wi-Fi Station
     Serial.println("pre wifi mode");
-    delay(1000);
+    delay(100);
     WiFi.mode(WIFI_STA);
     Serial.println("wifi mode ok");
-    delay(1000);
+    delay(100);
     WiFi.setChannel(6);
     Serial.println("wifi channel ok");
-    delay(1000);
+    delay(100);
 
     // Init ESP-NOW
     if (esp_now_init() != ESP_OK) {
@@ -537,31 +547,30 @@ void networkUpdate(float dt) {
         return;
     }
     
-    for (size_t i = 0; i < packets.size(); i++){
+    for (size_t i = 0; i < packets.size(); i++) {
 #if DBG_SER
         Serial.print("packet(");
         Serial.print(i);
         Serial.print(") ");
 #endif
-        if (packets[i].deserialize(L)) {
-            lua_getglobal(L, "myrtle_on_packetrecv");
-            if (lua_isfunction(L, -1)) {
-                Serial.print("calling: ");
+        lua_getglobal(L, "myrtle_on_packetrecv");
+        if (lua_isfunction(L, -1)) {
+            Serial.println("pre deser: ");
+            printLuaStack(L);
+            if (packets[i].deserialize(L)) {
+                Serial.println("calling: ");
+                printLuaStack(L);
 
                 // todo: generic pcall handler
-                int status = lua_pcall(L, 0, 0, 0);
-                if (status != LUA_OK) {
-                    Serial.print("Lua error: ");
-                    Serial.println(lua_tostring(L, -1));
-                    lua_pop(L, 1);
-                }
+                lua_pcall_custom(L, 1, 0, 0);
             } else {
-                Serial.println("Wasn't a func :P");
+                lua_settop(L, 0);
+                Serial.println("Error when deserializing...");
             }
-        } else {
-            lua_settop(L, 0);
-            Serial.println("Error when deserializing...");
         }
+
+        Serial.println("post deser: ");
+        printLuaStack(L);
     }
 
     packets.clear();
@@ -721,6 +730,10 @@ int lua_testPacket(lua_State* L) {
     if (peerInit) {
         sendMsg(peerInfo.peer_addr, (const char*)pck.data.data(), pck.data.size());
     }
+
+    // remove me: simulates receiving the packet
+    packets.push_back(pck);
+
     return 1;
 }
 
