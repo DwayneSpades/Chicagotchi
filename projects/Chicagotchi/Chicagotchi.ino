@@ -361,8 +361,10 @@ int lua_println(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
 
+#if DBG_SER
   Serial.print("lua_println: ");
   Serial.println(stuff);
+#endif
 	//create the drawable and push into the map
   canvas.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
@@ -385,9 +387,10 @@ int lua_setTextColor(lua_State* L)
 int lua_print(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
-  
+#if DBG_SER
   Serial.print("lua_print: ");
   Serial.println(stuff);
+#endif
 
 	//create the drawable and push into the map
   tft.setTextColor(ST77XX_WHITE);
@@ -614,6 +617,7 @@ void setup(void) {
   previousTime = millis();
 }
 
+bool chillMode = false;
 void loop() {
   previousTime = engineTime;
 
@@ -623,72 +627,96 @@ void loop() {
   canvas.setCursor(0, 0);
 
   updateButtons();
-  printLuaStack(L);
-  Serial.println("pre myrtle_update");
-  printLuaStack(L);
-
-  //engine loop update from main.lua
-  lua_getglobal(L, "myrtle_update");
-  if (lua_isfunction(L, -1))
-  {
-    lua_pcall_custom(L, 0, 0, 0);
+  if (D2.down()) {
+    chillMode = !chillMode;
   }
 
-  Serial.println("pre myrtle_draw");
-  printLuaStack(L);
+  // feel free to remove chill mode
+  if (chillMode) {
+    canvas.println("chill: ");
+    engineTime = millis();
+    deltaTime = engineTime - previousTime;
+    canvas.println(deltaTime);
 
-  // ok so what i know is -- if i do the deserialization it causes the issue
-  // there still are random crashes after deserializing that i dont understand
-  // but after i deserialize *sometimes* draw/update will start pushing nils onto the stack
-
-  // i tried doing lua_gc because sometimes it just says "not enough memory"
-  // when attempting to call update/draw
-  lua_getglobal(L, "myrtle_draw");
-  if (lua_isfunction(L, -1))
-  {
-    lua_pcall_custom(L, 0, 0, 0);
-  }
-
-  Serial.println("post myrtle_draw");
-  printLuaStack(L);
-
-  engineTime = millis();
-  deltaTime = engineTime - previousTime;
-
-#if _NETWORK_
-  networkClear();
-  networkUpdate(deltaTime);
+    tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  } else {
+#if DBG_SER
+    printLuaStack(L);
+    Serial.println("pre myrtle_update");
+    printLuaStack(L);
 #endif
-  Serial.println("post network update");
-  printLuaStack(L);
 
-/*
-  canvas.println("Frame Time (ms): ");
-  canvas.println(deltaTime);
-
-  if (peerInit) {
-    canvas.println("Connected!");
-  }
-*/
-  //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
-  tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
-
-  printLuaStack(L);
-  // we outta memory
-  if (lua_gc(L, LUA_GCCOLLECT, 0) != LUA_OK) {
-    Serial.println("ERROR WHILE GC.");
-  }
-  printLuaStack(L);
-
-  if (lua_gettop(L) > 0) {
-    int t = lua_type(L, 1);
-    if (t == LUA_TNIL) {
-      Serial.println("ruh-roh");
-      lua_pop(L, -1);
+    //engine loop update from main.lua
+    lua_getglobal(L, "myrtle_update");
+    if (lua_isfunction(L, -1))
+    {
+      lua_pcall_custom(L, 0, 0, 0);
     }
-  }
 
-  Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
-  Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
-  Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
+#if DBG_SER
+    Serial.println("pre myrtle_draw");
+    printLuaStack(L);
+#endif
+
+    lua_getglobal(L, "myrtle_draw");
+    if (lua_isfunction(L, -1))
+    {
+      lua_pcall_custom(L, 0, 0, 0);
+    }
+
+#if DBG_SER
+    Serial.println("post myrtle_draw");
+    printLuaStack(L);
+#endif
+
+    engineTime = millis();
+    deltaTime = engineTime - previousTime;
+
+    #if _NETWORK_
+      networkClear();
+      networkUpdate(deltaTime);
+    #endif
+#if DBG_SER
+    Serial.println("post network update");
+    printLuaStack(L);
+#endif
+
+  /*
+    canvas.println("Frame Time (ms): ");
+    canvas.println(deltaTime);
+
+    if (peerInit) {
+      canvas.println("Connected!");
+    }
+  */
+    //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
+    tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+
+#if DBG_SER
+    printLuaStack(L);
+#endif
+
+    // we outta memory
+    if (lua_gc(L, LUA_GCCOLLECT, 0) != LUA_OK) {
+      Serial.println("ERROR WHILE GC.");
+    }
+
+#if DBG_SER
+    printLuaStack(L);
+#endif
+
+    if (lua_gettop(L) > 0) {
+      int t = lua_type(L, 1);
+      if (t == LUA_TNIL) {
+        Serial.println("ruh-roh");
+        lua_pop(L, -1);
+      }
+    }
+
+#if DBG_SER
+    Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
+    Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
+    Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
+#endif
+  }
 }
