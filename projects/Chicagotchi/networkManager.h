@@ -171,6 +171,8 @@ struct packet {
                     } else {
                         lua_pushnil(L);
                     }
+
+                    if (!isKey) lua_settable(L, -3);
                     break;
                 case packet_stamp::boolean:
 #if DBG_SER
@@ -178,6 +180,7 @@ struct packet {
 #endif
                     i++;
                     lua_pushboolean(L, (int)buf[i]);
+                    if (!isKey) lua_settable(L, -3);
                     break;
                 case packet_stamp::number:
 #if DBG_SER
@@ -186,6 +189,7 @@ struct packet {
                     // todo: copy eight bytes
                     lua_pushnumber(L, (double)buf[i]);
                     i += sizeof(double);
+                    if (!isKey) lua_settable(L, -3);
                     break;
                 case packet_stamp::string:
                 {
@@ -204,6 +208,7 @@ struct packet {
 #endif
                     lua_pushstring(L, strbuf);
                     i += size - 1;
+                    if (!isKey) lua_settable(L, -3);
                 }
                     break;
 
@@ -225,11 +230,13 @@ struct packet {
                     Serial.print("\t- packet_stamp::table_end");
 #endif
                     tableCount--;
-                    lua_settable(L, -3);
-                    isKey = true;
+                    if (tableCount > 0) {
+                        lua_settable(L, -3);
+                        isKey = true;
 #if DBG_SER
-                    Serial.print("\t- settable / clear key");
+                        Serial.print("\t- settable / clear key");
 #endif
+                    }
 
                     Serial.println("");
                     break;
@@ -237,22 +244,8 @@ struct packet {
                 // Key/Value
                 case packet_stamp::table_key:
 #if DBG_SER
-                    Serial.print("\t- packet_stamp::table_key");
+                    Serial.println("\t- packet_stamp::table_key");
 #endif
-                    // isKey starts true
-                    // if its false, we need to pop a key/value pair
-                    if (!isKey) {
-                        lua_settable(L, -3);
-#if DBG_SER
-                        Serial.print(". settable ok");
-#endif
-                    } else {
-#if DBG_SER
-                        Serial.print(" - key");
-#endif
-                    }
-
-                    Serial.println("");
                     isKey = true;
                     break;
                     
