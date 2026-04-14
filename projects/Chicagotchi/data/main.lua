@@ -77,11 +77,6 @@ end
 
 sinDrive=0
 
-function myrtle_on_streetpass(peer)
-	-- get peer info
-	-- print(peer.name) -- ? maybe ?
-end
-
 local sx = 0;
 local sy = 0;
 

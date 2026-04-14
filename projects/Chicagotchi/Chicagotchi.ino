@@ -583,15 +583,6 @@ void setup(void) {
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(0, 0);
 
-  if (consumeStreetpass()) {
-    lua_getglobal(L, "myrtle_on_streetpass");
-    if (lua_isfunction(L, -1))
-    {
-      //tft.println("ran myrtle load successfully");
-      lua_pcall(L, 0, 0, 0);
-    }
-  }
-  
   //load assets and game data from engine's load function in main.lua 
   lua_getglobal(L, "myrtle_load");
   if (lua_isfunction(L, -1))

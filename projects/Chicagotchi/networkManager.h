@@ -346,7 +346,6 @@ std::vector<packet> packets;
 const float SPASS_PERIOD_MS = 3000.0f;
 float spass_time = 0.0f;
 
-bool hasStreetPass = false;
 // special message that just says "hey I want to connect!"
 // todo: refine the packet system
 uint8_t discovery_message[64] = {
@@ -392,7 +391,6 @@ void SerialPrintMAC(const uint8_t* mac, const char* end = "") {
 // todo: make it add more than one
 void addPeer(const esp_now_recv_info_t* esp_now_info) {
     peerInit = true;
-    hasStreetPass = true;
 
     memcpy(peerInfo.peer_addr, esp_now_info->src_addr, 6);
     peerInfo.channel = 6;  
@@ -608,14 +606,6 @@ bool networkSendPing() {
         return sendMsg(peerInfo.peer_addr, msg, sizeof(msg));
     }
 
-    return false;
-}
-
-bool consumeStreetpass() {
-    if (hasStreetPass) {
-        hasStreetPass = false;
-        return true;
-    }
     return false;
 }
 
