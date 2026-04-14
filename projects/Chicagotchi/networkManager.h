@@ -747,9 +747,6 @@ int lua_testPacket(lua_State* L) {
         sendMsg(peerInfo.peer_addr, (const char*)pck.data.data(), pck.data.size());
     }
 
-    // remove me: simulates receiving the packet
-    packets.push_back(pck);
-
     return 1;
 }
 
