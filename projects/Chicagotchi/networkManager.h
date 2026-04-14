@@ -573,7 +573,6 @@ void networkUpdate(float dt) {
                 printLuaStack(L);
 #endif
 
-                // todo: generic pcall handler
                 lua_pcall_custom(L, 1, 0, 0);
             } else {
                 lua_settop(L, 0);

@@ -174,7 +174,6 @@ private:
 
 sprite::sprite(int _w, int _h, int len)
 {
-  Serial.println("sprite alloc");
   width = _w;
   height = _h;
 
@@ -197,7 +196,6 @@ int lua_createSprite(lua_State* L)
   int len = (int)lua_tonumber(L, 2);
   int w = (int)lua_tonumber(L, 3);
   int h = (int)lua_tonumber(L, 4);
-  Serial.println("sprite alloc 2");
 
   sprites[name] = new sprite(w,h,len);
   
@@ -609,7 +607,7 @@ void setup(void) {
 }
 
 #define CHILL_MODE 0
-#ifdef CHILL_MODE
+#if CHILL_MODE
 bool chillMode = false;
 #endif
 
@@ -622,11 +620,12 @@ void loop() {
   canvas.setCursor(0, 0);
 
   updateButtons();
+
+#if CHILL_MODE
   if (D2.down()) {
     chillMode = !chillMode;
   }
-
-#if CHILL_MODE
+  
   // feel free to remove chill mode
   if (chillMode) {
     canvas.println("chill: ");
