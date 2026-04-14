@@ -617,7 +617,11 @@ void setup(void) {
   previousTime = millis();
 }
 
+#define CHILL_MODE 0
+#ifdef CHILL_MODE
 bool chillMode = false;
+#endif
+
 void loop() {
   previousTime = engineTime;
 
@@ -631,6 +635,7 @@ void loop() {
     chillMode = !chillMode;
   }
 
+#if CHILL_MODE
   // feel free to remove chill mode
   if (chillMode) {
     canvas.println("chill: ");
@@ -640,6 +645,7 @@ void loop() {
 
     tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
   } else {
+#endif
 #if DBG_SER
     printLuaStack(L);
     Serial.println("pre myrtle_update");
@@ -718,5 +724,7 @@ void loop() {
     Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
     Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
 #endif
+#if CHILL_MODE
   }
+#endif
 }
