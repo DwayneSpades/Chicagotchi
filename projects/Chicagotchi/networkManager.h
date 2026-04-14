@@ -27,7 +27,7 @@ esp_now_peer_info_t peerInfo;
 // this one is just for broadcast address
 esp_now_peer_info_t peerInfoFF;
 
-#define DBG_SER 1
+#define DBG_SER 0
 
 void printTypeAndValue(lua_State* L, int idx) {
     int t = lua_type(L, idx);
@@ -52,6 +52,9 @@ void printTypeAndValue(lua_State* L, int idx) {
         case LUA_TSTRING:
             Serial.print(lua_tostring(L, idx));
             break;
+        case LUA_TFUNCTION:
+            Serial.print("function(\"...\")");
+            break;
         default:
             Serial.print("Err: Unsupported type '");
             Serial.print(tName);
@@ -71,13 +74,15 @@ void indent() {
 
 void printLuaStack(lua_State* L) {
     if (lua_gettop(L) < 1) {
-        Serial.println("0: printLuaStack: lua_gettop <= 0");
+        Serial.println("\t\t0: printLuaStack: lua_gettop <= 0");
     } else {
         for (int i = 1; i <= lua_gettop(L); i++) {
+            Serial.print("\t\t");
             Serial.print(i);
             Serial.print(": ");
             printTypeAndValue(L, i);
         }
+        Serial.println("-");
     }
 }
 #endif
@@ -96,7 +101,7 @@ namespace packet_stamp {
     const uint8_t table_end = 0x07;
 }
 
-#define MAX_STR_SIZE 0xFFFF
+#define MAX_STR_SIZE 0xFF
 struct packet_str_data {
     char buffer[MAX_STR_SIZE];
     uint16_t size = 0;
@@ -172,6 +177,9 @@ struct packet {
                         lua_pushnil(L);
                     }
 
+#if DBG_SER
+                    printLuaStack(L);
+#endif
                     if (!isKey) lua_settable(L, -3);
                     break;
                 case packet_stamp::boolean:
@@ -180,6 +188,9 @@ struct packet {
 #endif
                     i++;
                     lua_pushboolean(L, (int)buf[i]);
+#if DBG_SER
+                    printLuaStack(L);
+#endif
                     if (!isKey) lua_settable(L, -3);
                     break;
                 case packet_stamp::number:
@@ -189,6 +200,9 @@ struct packet {
                     // todo: copy eight bytes
                     lua_pushnumber(L, (double)buf[i]);
                     i += sizeof(double);
+#if DBG_SER
+                    printLuaStack(L);
+#endif
                     if (!isKey) lua_settable(L, -3);
                     break;
                 case packet_stamp::string:
@@ -208,6 +222,10 @@ struct packet {
 #endif
                     lua_pushstring(L, strbuf);
                     i += size - 1;
+
+#if DBG_SER
+                    printLuaStack(L);
+#endif
                     if (!isKey) lua_settable(L, -3);
                 }
                     break;
@@ -232,7 +250,6 @@ struct packet {
                     tableCount--;
                     if (tableCount > 0) {
                         lua_settable(L, -3);
-                        isKey = true;
 #if DBG_SER
                         Serial.print("\t- settable / clear key");
 #endif
@@ -548,11 +565,15 @@ void networkUpdate(float dt) {
 #endif
         lua_getglobal(L, "myrtle_on_packetrecv");
         if (lua_isfunction(L, -1)) {
+#if DBG_SER
             Serial.println("pre deser: ");
             printLuaStack(L);
+#endif
             if (packets[i].deserialize(L)) {
+#if DBG_SER
                 Serial.println("calling: ");
                 printLuaStack(L);
+#endif
 
                 // todo: generic pcall handler
                 lua_pcall_custom(L, 1, 0, 0);
@@ -562,8 +583,10 @@ void networkUpdate(float dt) {
             }
         }
 
+#if DBG_SER
         Serial.println("post deser: ");
         printLuaStack(L);
+#endif
     }
 
     packets.clear();
