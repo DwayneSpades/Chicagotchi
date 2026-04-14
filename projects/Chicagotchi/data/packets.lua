@@ -27,4 +27,4 @@ function userConnect(packet)
     --
 end
 
-myrtle.testPacket = testPacket
+myrtle.sendMessage = sendMessage

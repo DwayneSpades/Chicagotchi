@@ -701,7 +701,7 @@ void processLuaTable(packet& pck, lua_State* L, int idx) {
     pck.pushTableEnd();
 }
 
-int lua_testPacket(lua_State* L) {
+int lua_sendMessage(lua_State* L) {
     packet pck;
     int t = lua_type(L, 1);
 

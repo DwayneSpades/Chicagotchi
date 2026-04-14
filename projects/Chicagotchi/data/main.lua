@@ -101,7 +101,7 @@ function myrtle_update()
 	if (myrtle.buttonDown(myrtle.buttons.D0)) then
 		sy = sy + 15
 
-		myrtle.testPacket({
+		myrtle.sendMessage({
 			obj1 = 5,
 			obj2 = 3.5,
 			obj3 = "This is a string",

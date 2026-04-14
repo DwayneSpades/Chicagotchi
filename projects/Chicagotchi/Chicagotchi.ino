@@ -493,7 +493,7 @@ void setup(void) {
   lua_register(L, "loadPixel", lua_loadPixel);
   lua_register(L, "drawSprite", lua_drawSprite);
   lua_register(L, "drawBitmap", lua_drawBitmap);
-  lua_register(L, "testPacket", lua_testPacket);
+  lua_register(L, "sendMessage", lua_sendMessage);
 
   lua_register(L, "buttonDown", lua_buttonDown);
   lua_register(L, "buttonUp", lua_buttonUp);
