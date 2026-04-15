@@ -18,6 +18,10 @@ myrtle.print = myrtlePrint
 myrtle.println = myrtlePrintln
 myrtle.setTextColor = myrtleSetTextColor
 
+myrtle.sendMessage = sendMessage
+myrtle.getPeerCount = getPeerCount
+myrtle.getPeerAddr = getPeerAddr
+
 myrtle.buttons = {}
 myrtle.buttons.D0 = 0
 myrtle.buttons.D1 = 1
@@ -82,16 +86,6 @@ local sy = 0;
 
 local recvData = nil
 
-function myrtle_on_packetrecv(packetTable)
-	myrtle.println("received packet! "..tostring(packetTable))
-	recvData = "{\n"
-	for k,v in pairs(packetTable) do
-		recvData = recvData.."\t"..tostring(k)..": "..tostring(v).."\n"
-	end
-	recvData = recvData.."}\n"
-	myrtle.println("packet data: "..recvData)
-end
-
 function myrtle_update()
 	
 	sinDrive = sinDrive + 0.05
@@ -99,17 +93,18 @@ function myrtle_update()
 	spriteObject.position.y = sy + 32 + math.cos(sinDrive)*20
 	
 	if (myrtle.buttonDown(myrtle.buttons.D0)) then
-		sy = sy + 15
-
-		myrtle.sendMessage({
-			obj1 = 5,
-			obj2 = 3.5,
-			obj3 = "This is a string",
-			obj4 = {
-				obj1 = nil,
-				obj2 = "sneerf"
-			}
-		})
+		if (myrtle.getPeerCount() > 0) then
+			sy = sy + 15
+			myrtle.sendMessage(myrtle.getPeerAddr(1), PID_HELLO, {
+				obj1 = 5,
+				obj2 = 3.5,
+				obj3 = "This is a string",
+				obj4 = {
+					obj1 = nil,
+					obj2 = "sneerf"
+				}
+			})
+		end
 	end
 
 	runGarbageCollector()

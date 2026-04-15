@@ -1,30 +1,34 @@
 packets = {}
 
--- user connect
+-- PIDs must be 0-65535
+PID_HELLO = 1
 
--- uint32_t id
--- str name
--- uint16_t* spriteData
-
--- user move
--- uint32_t id
--- int x
--- int y
-
-function recvPacket(packet)
-    packets[packet.id](packet)
+-- packet functions have signature:
+--  function(srcAddr: string, packet: table)
+-- where srcAddr is the MAC address of the sender,
+-- and the packet is a big thing o' data
+packets[PID_HELLO] = function(srcAddr, packet) 
+    myrtle.println("Hello from "..srcAddr.." :)")
 end
 
-function sendPacket(packet)
-    myrtle.sendPacket(packet)
+function myrtle_on_peer_discovery(peerAddr)
+	myrtle.println("discovered a peer!: "..peerAddr)
+	-- now do streetpass stuff
 end
 
-function userConnect(packet)
-    local id = packet.pop_uint32_t();
-    local name = packet.pop_string();
-    local spriteData = packet.pop_array_uint16_t();
+function myrtle_on_packetrecv(peerAddr, packetId, packet)
+	myrtle.println("received packet! "..tostring(packet))
+	recvData = "{\n"
+	for k,v in pairs(packet) do
+		recvData = recvData.."\t"..tostring(k)..": "..tostring(v).."\n"
+	end
+	recvData = recvData.."}\n"
+	myrtle.println("packet data: "..recvData)
 
-    --
+    if (packets[packetId] ~= nil) then
+        packets[packetId](peerAddr, packet)
+    else
+        myrtle.println("No corresponding packet function for "..packetId)
+    end
+
 end
-
-myrtle.sendMessage = sendMessage

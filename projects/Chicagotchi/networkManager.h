@@ -27,6 +27,7 @@ esp_now_peer_info_t peerInfo;
 // this one is just for broadcast address
 esp_now_peer_info_t peerInfoFF;
 
+#define DBG_USE_LOOPBACK 0
 #define DBG_SER 0
 
 void printTypeAndValue(lua_State* L, int idx) {
@@ -121,10 +122,17 @@ size_t my_strlen_s(const char* buf, size_t max) {
 }
 
 struct packet {
+    uint8_t sender_addr[ESP_NOW_ETH_ALEN];
     std::vector<uint8_t> data;
 
     packet() {}
-    packet(const uint8_t* buf, int len) {
+    
+    packet(const uint8_t* src_addr) {
+        memcpy(sender_addr, src_addr, ESP_NOW_ETH_ALEN);
+    }
+
+    packet(const uint8_t* src_addr, const uint8_t* buf, int len) {
+        memcpy(sender_addr, src_addr, ESP_NOW_ETH_ALEN);
         data.insert(data.end(), buf, buf+len);
     }
 
@@ -135,6 +143,11 @@ struct packet {
     bool deserialize(lua_State* L) {
         const uint8_t* buf = data.data();
         size_t len = data.size();
+
+        if (len == 0) {
+            Serial.println("Abort -- no data!");
+            return false;
+        }
 
         int safety = 0;
         while (lua_type(L, -1) == LUA_TSTRING) {
@@ -156,6 +169,42 @@ struct packet {
             return false;
         }
 
+#if DBG_SER
+        Serial.print("addr: ");
+        for (int i = 0; i < 6; i++){
+            Serial.print("0x");
+            Serial.print(sender_addr[i], HEX);
+            Serial.print(", ");
+        }
+        Serial.println("");
+#endif
+
+        // push the dest addr
+        lua_pushlstring(L, (const char*)sender_addr, ESP_NOW_ETH_ALEN);
+
+#if DBG_SER
+        Serial.println("post push string");
+        Serial.print("pre bit bang: len=");
+        Serial.print(len);
+        Serial.print(", buf[0]=");
+        Serial.print(buf[0]);
+        Serial.print(", buf[1]=");
+        Serial.print(buf[1]);
+        Serial.print(", buf[1] << 8 =");
+        Serial.println(buf[1] << 8);
+#endif
+
+        // packetId is always first in the buffer
+        uint16_t packetId = buf[0] | (buf[1] << 8);
+        
+        lua_pushnumber(L, (double)packetId);
+        int i = 2;
+
+#if DBG_SER
+        Serial.print("Packet id: ");
+        Serial.println(packetId);
+#endif
+
         bool isKey = true; // false = isValue
         int tableCount = 0;
 
@@ -163,7 +212,7 @@ struct packet {
         Serial.println("packet::deserialize!");
         printLuaStack(L);
 #endif
-        for (int i = 0; i < len; i++) {
+        for (; i < len; i++) {
             switch(buf[i]) {
                 // Primitives
                 case packet_stamp::nil:
@@ -293,6 +342,17 @@ struct packet {
         return true;
     }
 
+    void pushPacketId(uint16_t id) {
+        if (data.size() > 0) {
+            Serial.print("Err -- packetId should be the first item! Attempted to push id: ");
+            Serial.print(id);
+            Serial.println("");
+            return;
+        }
+
+        data.insert(data.end(), (uint8_t*)&id, (uint8_t*)(&id + 1));
+    }
+
     void pushNil() {
         data.push_back(packet_stamp::nil);
     }
@@ -387,12 +447,18 @@ void SerialPrintMAC(const uint8_t* mac, const char* end = "") {
     Serial.print(end);
 }
 
-// adds a peer
-// todo: make it add more than one
+void onDiscovery(const uint8_t* peer_addr) {
+    lua_getglobal(L, "myrtle_on_peer_discovery");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, (const char*)peer_addr);
+        lua_pcall_custom(L, 0, 0, 0);
+    }
+}
+
 void addPeer(const esp_now_recv_info_t* esp_now_info) {
     peerInit = true;
 
-    memcpy(peerInfo.peer_addr, esp_now_info->src_addr, 6);
+    memcpy(peerInfo.peer_addr, esp_now_info->src_addr, ESP_NOW_ETH_ALEN);
     peerInfo.channel = 6;  
     peerInfo.encrypt = false;
 
@@ -400,6 +466,8 @@ void addPeer(const esp_now_recv_info_t* esp_now_info) {
         Serial.println("Failed to add new peer");
         return;
     }
+
+    onDiscovery(peerInfo.peer_addr);
 }
 
 // function to manually send an arbitrary message
@@ -453,13 +521,11 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
     Serial.println((const char*)data);
     Serial.println("-");
 
-    delay(100);
-
     if (isDiscoveryMessage(data, data_len)) {
         Serial.println("Peer found: ");
         SerialPrintMAC(esp_now_info->src_addr, "\n");
         
-        if (!peerInit) {
+        if (!esp_now_is_peer_exist(esp_now_info->src_addr)) {
             addPeer(esp_now_info);
         }
     } else {
@@ -473,13 +539,238 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
         Serial.println("");
 #endif
         if (packets.size() < MAX_PACKETS) {
-            packets.push_back(packet(data, data_len));
+            packets.push_back(packet(esp_now_info->src_addr, data, data_len));
         } else {
             Serial.println("Error: dropping this packet -- i got too many.");
         }
-        Serial.println("pinged!");
-        pinged = true;
     }
+}
+
+// sends a message
+bool networkSendPing() {
+    if (!netInit) return false;
+
+    if (peerInit) {
+        const char msg[64] = "Nice to meet you :)";
+        return sendMsg(peerInfo.peer_addr, msg, sizeof(msg));
+    }
+
+    return false;
+}
+
+bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
+    if (isKey) {
+        pck.pushTableKey();
+    } else {
+        pck.pushTableValue();
+    }
+
+#if DBG_SER
+    printTypeAndValue(L, idx);
+#endif
+
+    int valueT = lua_type(L, idx);
+    switch (valueT) {
+        case LUA_TNIL:
+            pck.pushNil();
+            break;
+        case LUA_TTABLE:
+            // skip
+            if (isKey) {
+                Serial.println("Err: Tables as keys are not supported.'");
+                return false;
+            }
+            break;
+        case LUA_TNUMBER:
+            pck.pushNumber(lua_tonumber(L, idx));
+            break;
+        case LUA_TBOOLEAN:
+            pck.pushNumber(lua_toboolean(L, idx));
+            break;
+        case LUA_TSTRING:
+            pck.pushString(lua_tostring(L, idx)); // <- this is cursed -- might be brittle...
+            break;
+        default:
+            pck.pushNil();
+            Serial.print("Err: Unsupported type '");
+            Serial.print(lua_typename(L, valueT));
+            Serial.println("'");
+            return false;
+        break;
+    }
+
+    return true;
+}
+
+#define MAX_TABLE_DEPTH 10
+bool processLuaTable(packet& pck, lua_State* L, int idx, int depth) {
+    pck.pushTableBegin();
+
+    // dont totally understand this but it starts table iteration
+    lua_pushnil(L);
+
+    // push keys onto the stack -- i.e.
+    // 1 (--): param1
+    // 2 (-2): param1.keys[0]
+    // 3 (-1): param1.values[0]
+    while (lua_next(L, idx) != 0) {
+#if DBG_SER
+        indent();
+        Serial.println("packet::serialize: nextloop");
+
+        indent();  
+        printLuaStack(L);
+#endif
+        if (pushLuaValue(pck, L, -2, true)) { // key
+            pushLuaValue(pck, L, -1, false); // value
+
+            int valueT = lua_type(L, -1);
+            if (valueT == LUA_TTABLE) {
+#if DBG_SER
+                indent();
+                Serial.println("{");
+                tab++;
+#endif
+
+                if (depth > MAX_TABLE_DEPTH) {
+                    Serial.print("Abort! exceeded max table depth: ");
+                    Serial.print(MAX_TABLE_DEPTH);
+                    Serial.println("");
+                    return false;
+                }
+                if (!processLuaTable(pck, L, lua_gettop(L), depth++)) {
+                    return false;
+                }
+#if DBG_SER
+                tab--;
+                indent();
+                Serial.println("}");
+#endif
+            } else {
+#if DBG_SER
+                indent();
+#endif
+            }
+        }
+
+        lua_pop(L, 1);
+    }
+
+    pck.pushTableEnd();
+    return true;
+}
+
+// todo: make a macro
+bool espNowCall(esp_err_t code, const char* func) {
+    if (code == ESP_OK) {
+        return true;
+    }
+
+    Serial.print("Err: ");
+    Serial.print(func);
+    Serial.print(" returned '");
+    Serial.print(esp_err_to_name(code));
+    Serial.println("'");
+    return false;
+}
+
+int lua_sendMessage(lua_State* L) {
+#if DBG_SER
+    Serial.println("SEND MESSAGE =========================================================");
+#endif
+    String macStr = WiFi.STA.macAddress();
+    packet pck((const uint8_t*)macStr.c_str());
+
+    if (lua_type(L, 1) != LUA_TSTRING) {
+        Serial.println("sendMessage Error -- arg 1 should be a string");
+        return 1;
+    }
+
+    const uint8_t* destAddr = (const uint8_t*)lua_tostring(L, 1);
+
+    // maybe enforce a bounds check here
+    uint16_t packetId = static_cast<uint16_t>(lua_tointeger(L, 2));
+
+    bool success = false;
+    int t = lua_type(L, 3);
+#if DBG_SER
+    Serial.println("packet::serialize - ");
+    Serial.println("Pre next == ");
+    printLuaStack(L);
+#endif
+    if (t == LUA_TTABLE) {
+        pck.pushPacketId(packetId);
+        success = processLuaTable(pck, L, 3, 0);
+    } else {
+        Serial.print("packet::serialize: unsupported parameter type '");
+        Serial.print(lua_typename(L, t));
+        Serial.println("'.");
+    }
+
+#if DBG_SER
+    Serial.println("Post next == ");
+    printLuaStack(L);
+
+    Serial.println("PACKET: ");
+    for (size_t i = 0; i < pck.data.size(); i++) {
+        Serial.print("0x");
+        Serial.print(pck.data[i], HEX);
+        Serial.print(", ");
+    }
+    Serial.println(" | ");
+#endif
+    lua_pop(L, 1);
+
+    if (peerInit) {
+        if (success) {
+            sendMsg(destAddr, (const char*)pck.data.data(), pck.data.size());
+        } else {
+            Serial.print("Failed to send packet with id ");
+            Serial.print(packetId);
+            Serial.println("");
+        }
+    }
+
+#if DBG_USE_LOOPBACK
+    packets.push_back(packet(destAddr, pck.data.data(), pck.data.size()));
+#endif
+
+    return 1;
+}
+
+int lua_getPeerCount(lua_State* L) {
+#if DBG_SER
+    Serial.println("GET PEER COUNT =========================================================");
+#endif
+    esp_now_peer_num_t num;
+    if (espNowCall(esp_now_get_peer_num(&num), "esp_now_get_peer_num")) {
+        lua_pushnumber(L, (double)num.total_num);
+    }
+
+    return 1;
+}
+
+int lua_getPeerAddr(lua_State* L) {
+#if DBG_SER
+    Serial.println("GET PEER ADDR =========================================================");
+#endif
+    int index = lua_tointeger(L, 1); // assumes we're getting a lua-index (first=1)
+
+    bool success = false;
+    esp_now_peer_info_t peer;
+    for (int i = 0; i < index; i++) {
+        bool result = espNowCall(esp_now_fetch_peer(i == 0, &peer), "esp_now_fetch_peer");
+        if (i == index - 1) {
+            success = result;
+        }
+    }
+
+    if (!success) {
+        memset(peer.peer_addr, 'X', ESP_NOW_ETH_ALEN);
+    }
+    lua_pushlstring(L, (const char*)peer.peer_addr, 6);
+
+    return 1;
 }
 
 // call this to initialize the network
@@ -494,6 +785,11 @@ void networkSetup() {
     Serial.println("wifi mode ok");
     delay(100);
     WiFi.setChannel(6);
+    // 80db!!!
+    WiFi.setTxPower(wifi_power_t::WIFI_POWER_2dBm);
+    Serial.print("txPower: ");
+    Serial.print(WiFi.getTxPower());
+    Serial.println("dB");
     Serial.println("wifi channel ok");
     delay(100);
 
@@ -573,7 +869,7 @@ void networkUpdate(float dt) {
                 printLuaStack(L);
 #endif
 
-                lua_pcall_custom(L, 1, 0, 0);
+                lua_pcall_custom(L, 3, 0, 0);
             } else {
                 lua_settop(L, 0);
                 Serial.println("Error when deserializing...");
@@ -594,149 +890,6 @@ void networkClear() {
     if (!netInit) return;
 
     pinged = false;
-}
-
-// sends a message
-bool networkSendPing() {
-    if (!netInit) return false;
-
-    if (peerInit) {
-        const char msg[64] = "Nice to meet you :)";
-        return sendMsg(peerInfo.peer_addr, msg, sizeof(msg));
-    }
-
-    return false;
-}
-
-bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
-    if (isKey) {
-        pck.pushTableKey();
-    } else {
-        pck.pushTableValue();
-    }
-
-#if DBG_SER
-    printTypeAndValue(L, idx);
-#endif
-
-    int valueT = lua_type(L, idx);
-    switch (valueT) {
-        case LUA_TNIL:
-            pck.pushNil();
-            break;
-        case LUA_TTABLE:
-            // skip
-            if (isKey) {
-                Serial.println("Err: Tables as keys are not supported.'");
-                return false;
-            }
-            break;
-        case LUA_TNUMBER:
-            pck.pushNumber(lua_tonumber(L, idx));
-            break;
-        case LUA_TBOOLEAN:
-            pck.pushNumber(lua_toboolean(L, idx));
-            break;
-        case LUA_TSTRING:
-            pck.pushString(lua_tostring(L, idx)); // <- this is cursed -- might be brittle...
-            break;
-        default:
-            pck.pushNil();
-            Serial.print("Err: Unsupported type '");
-            Serial.print(lua_typename(L, valueT));
-            Serial.println("'");
-            return false;
-        break;
-    }
-
-    return true;
-}
-
-// todo: max depth check -- don't want to stack overflow
-void processLuaTable(packet& pck, lua_State* L, int idx) {
-    pck.pushTableBegin();
-
-    // dont totally understand this but it starts table iteration
-    lua_pushnil(L);
-
-    // push keys onto the stack -- i.e.
-    // 1 (--): param1
-    // 2 (-2): param1.keys[0]
-    // 3 (-1): param1.values[0]
-    while (lua_next(L, idx) != 0) {
-#if DBG_SER
-        indent();
-        Serial.println("packet::serialize: nextloop");
-
-        indent();  
-        printLuaStack(L);
-#endif
-        if (pushLuaValue(pck, L, -2, true)) { // key
-            pushLuaValue(pck, L, -1, false); // value
-
-            int valueT = lua_type(L, -1);
-            if (valueT == LUA_TTABLE) {
-#if DBG_SER
-                indent();
-                Serial.println("{");
-                tab++;
-#endif
-
-                processLuaTable(pck, L, lua_gettop(L));
-#if DBG_SER
-                tab--;
-                indent();
-                Serial.println("}");
-#endif
-            } else {
-#if DBG_SER
-                indent();
-#endif
-            }
-        }
-
-        lua_pop(L, 1);
-    }
-
-    pck.pushTableEnd();
-}
-
-int lua_sendMessage(lua_State* L) {
-    packet pck;
-    int t = lua_type(L, 1);
-
-#if DBG_SER
-    Serial.println("packet::serialize - ");
-    Serial.println("Pre next == ");
-    printLuaStack(L);
-#endif
-    if (t == LUA_TTABLE) {
-        processLuaTable(pck, L, 1);
-    } else {
-        Serial.print("packet::serialize: unsupported parameter type '");
-        Serial.print(lua_typename(L, t));
-        Serial.println("'.");
-    }
-
-#if DBG_SER
-    Serial.println("Post next == ");
-    printLuaStack(L);
-
-    Serial.println("PACKET: ");
-    for (size_t i = 0; i < pck.data.size(); i++) {
-        Serial.print("0x");
-        Serial.print(pck.data[i], HEX);
-        Serial.print(", ");
-    }
-    Serial.println(" | ");
-#endif
-    lua_pop(L, 1);
-
-    if (peerInit) {
-        sendMsg(peerInfo.peer_addr, (const char*)pck.data.data(), pck.data.size());
-    }
-
-    return 1;
 }
 
 #endif
