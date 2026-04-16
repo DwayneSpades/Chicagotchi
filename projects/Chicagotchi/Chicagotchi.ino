@@ -609,11 +609,6 @@ void setup(void) {
   previousTime = millis();
 }
 
-#define CHILL_MODE 0
-#if CHILL_MODE
-bool chillMode = false;
-#endif
-
 void loop() {
   previousTime = engineTime;
 
@@ -624,100 +619,70 @@ void loop() {
 
   updateButtons();
 
-#if CHILL_MODE
-  if (D2.down()) {
-    chillMode = !chillMode;
+#if DBG_SER
+  printLuaStack(L);
+  Serial.println("pre myrtle_update");
+  printLuaStack(L);
+#endif
+
+  //engine loop update from main.lua
+  lua_getglobal(L, "myrtle_update");
+  if (lua_isfunction(L, -1))
+  {
+    lua_pcall_custom(L, 0, 0, 0);
   }
-  
-  // feel free to remove chill mode
-  if (chillMode) {
-    canvas.println("chill: ");
-    engineTime = millis();
-    deltaTime = engineTime - previousTime;
-    canvas.println(deltaTime);
-
-    tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
-  } else {
-#endif
-#if DBG_SER
-    printLuaStack(L);
-    Serial.println("pre myrtle_update");
-    printLuaStack(L);
-#endif
-
-    //engine loop update from main.lua
-    lua_getglobal(L, "myrtle_update");
-    if (lua_isfunction(L, -1))
-    {
-      lua_pcall_custom(L, 0, 0, 0);
-    }
 
 #if DBG_SER
-    Serial.println("pre myrtle_draw");
-    printLuaStack(L);
+  Serial.println("pre myrtle_draw");
+  printLuaStack(L);
 #endif
 
-    lua_getglobal(L, "myrtle_draw");
-    if (lua_isfunction(L, -1))
-    {
-      lua_pcall_custom(L, 0, 0, 0);
-    }
+  lua_getglobal(L, "myrtle_draw");
+  if (lua_isfunction(L, -1))
+  {
+    lua_pcall_custom(L, 0, 0, 0);
+  }
 
 #if DBG_SER
-    Serial.println("post myrtle_draw");
-    printLuaStack(L);
+  Serial.println("post myrtle_draw");
+  printLuaStack(L);
 #endif
 
-    engineTime = millis();
-    deltaTime = engineTime - previousTime;
+  engineTime = millis();
+  deltaTime = engineTime - previousTime;
 
-    #if _NETWORK_
-      networkClear();
-      networkUpdate(deltaTime);
-    #endif
+  #if _NETWORK_
+    networkClear();
+    networkUpdate(deltaTime);
+  #endif
 #if DBG_SER
     Serial.println("post network update");
     printLuaStack(L);
 #endif
 
-  /*
-    canvas.println("Frame Time (ms): ");
-    canvas.println(deltaTime);
-
-    if (peerInit) {
-      canvas.println("Connected!");
-    }
-  */
-    //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
-    tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  canvas.println("Frame Time (ms): ");
+  canvas.println(deltaTime);
+  //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
+  tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
 
 #if DBG_SER
-    printLuaStack(L);
+  printLuaStack(L);
 #endif
 
-    // we outta memory
-    if (lua_gc(L, LUA_GCCOLLECT, 0) != LUA_OK) {
-      Serial.println("ERROR WHILE GC.");
+  // not sure if this check still matters
+  // we'll keep it around for debug purposes
+  if (lua_gettop(L) > 0) {
+    int t = lua_type(L, 1);
+    if (t == LUA_TNIL) {
+      lua_pop(L, -1);
+      Serial.println("ruh-roh -- detected a random nil on the stack! That's not good. Popped it. Stack is now: ");
+      printLuaStack(L);
     }
-
-#if DBG_SER
-    printLuaStack(L);
-#endif
-
-    if (lua_gettop(L) > 0) {
-      int t = lua_type(L, 1);
-      if (t == LUA_TNIL) {
-        Serial.println("ruh-roh");
-        lua_pop(L, -1);
-      }
-    }
-
-#if DBG_SER
-    Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
-    Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
-    Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
-#endif
-#if CHILL_MODE
   }
+
+#if DBG_SER
+  Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
+  Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
+  Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
 #endif
 }

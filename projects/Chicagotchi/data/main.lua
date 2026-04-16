@@ -91,7 +91,8 @@ function myrtle_update()
 	sinDrive = sinDrive + 0.05
 	spriteObject.position.x = sx + 100 + math.sin(sinDrive)*20
 	spriteObject.position.y = sy + 32 + math.cos(sinDrive)*20
-	
+
+	-- packet testing - feel free to change
 	if (myrtle.buttonDown(myrtle.buttons.D0)) then
 		if (myrtle.getPeerCount() > 0) then
 			sy = sy + 15

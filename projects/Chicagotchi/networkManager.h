@@ -76,6 +76,7 @@ void indent() {
         Serial.print("\t");
     }
 }
+#endif
 
 void printLuaStack(lua_State* L) {
     if (lua_gettop(L) < 1) {
@@ -90,7 +91,6 @@ void printLuaStack(lua_State* L) {
         Serial.println("-");
     }
 }
-#endif
 
 namespace packet_stamp {
     // primitives
