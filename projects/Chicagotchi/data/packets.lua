@@ -12,8 +12,14 @@ packets[PID_HELLO] = function(srcAddr, packet)
 end
 
 function myrtle_on_peer_discovery(peerAddr)
-	myrtle.println("discovered a peer!: "..peerAddr)
+	myrtle.println("discovered a peer!: ")
+	myrtle.println("addr: "..tostring(peerAddr))
 	-- now do streetpass stuff
+end
+
+function myrtle_on_peer_lost(peerAddr)
+	myrtle.println("Lost a peer!: ")
+	myrtle.println("addr: "..tostring(peerAddr))
 end
 
 function myrtle_on_packetrecv(peerAddr, packetId, packet)

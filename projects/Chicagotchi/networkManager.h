@@ -5,10 +5,11 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <lapi.h>
-#include <vector>
 #include <cstdint>
+#include <vector>
+#include <unordered_map>
 #include <string>
-
+#include <mutex>
 #include "luaState.h"
 
 // ESP-NOW broadcast address
@@ -26,6 +27,8 @@ esp_now_peer_info_t peerInfo;
 
 // this one is just for broadcast address
 esp_now_peer_info_t peerInfoFF;
+
+std::mutex msg_mutex;
 
 #define DBG_USE_LOOPBACK 0
 #define DBG_SER 0
@@ -398,16 +401,38 @@ struct packet {
     void pushTableEnd() { data.push_back(packet_stamp::table_end); }
 };
 
+#define PING_STRIKES 3
+struct pingInfo {
+    int strikes = -1;
+};
+
 #define MAX_PACKETS 10
 std::vector<packet> packets;
 
+struct addrHasher {
+    std::size_t operator()(const std::array<uint8_t, 6>& arr) const {
+        std::size_t hash = 17;
+
+        for (int i = 0; i < 6; i++)
+        {
+            hash = hash * 31 + static_cast<std::size_t>(arr[i]);
+        }
+
+        return hash;
+    }
+};
+
+std::unordered_map<std::array<uint8_t, 6>, pingInfo, addrHasher> peerPingInfo;
 
 // timing
-const float SPASS_PERIOD_MS = 3000.0f;
-float spass_time = 0.0f;
+const float DISCOVERY_PERIOD_MS = 5000.0f;
+float discovery_time = 0.0f;
+
+const float PING_PERIOD_MS = 5000.0f;
+float ping_time = 0.0f;
 
 // special message that just says "hey I want to connect!"
-// todo: refine the packet system
+// todo: replace this lol
 uint8_t discovery_message[64] = {
     0x10,
     0x11,
@@ -416,20 +441,50 @@ uint8_t discovery_message[64] = {
     0x20,
     0x21,
     0x22,
-    0x23,
+    0x00,
 };
 
-bool isDiscoveryMessage(const uint8_t* msg, int len) {
+// special message that just says "are ya still there"
+// todo: replace this lol
+uint8_t ping_message[64] = {
+    0x04,
+    0x04,
+    0x04,
+    0x04,
+    0x01,
+    0x01,
+    0x01,
+    0x00,
+};
+
+// special message that just says "im still here"
+// todo: replace this lol
+uint8_t ping_ack_message[64] = {
+    0x09,
+    0x09,
+    0x09,
+    0x09,
+    0x06,
+    0x06,
+    0x06,
+    0x00,
+};
+
+bool isMessage(const uint8_t* msg1, const uint8_t* msg2, int len) {
     if (len < 8) return false;
 
     for (int i = 0; i < 8; i++) {
-        if (msg[i] != discovery_message[i]) {
+        if (msg1[i] != msg2[i]) {
             return false;
         }
     }
 
     return true;
 }
+
+bool isDiscoveryMessage(const uint8_t* msg, int len) { return isMessage(msg, discovery_message, len); }
+bool isPingMessage(const uint8_t* msg, int len) { return isMessage(msg, ping_message, len); }
+bool isPingAckMessage(const uint8_t* msg, int len) { return isMessage(msg, ping_ack_message, len); }
 
 // utility function to send a mac address to the serial monitor
 // there is likely an easier way lol
@@ -450,8 +505,10 @@ void SerialPrintMAC(const uint8_t* mac, const char* end = "") {
 void onDiscovery(const uint8_t* peer_addr) {
     lua_getglobal(L, "myrtle_on_peer_discovery");
     if (lua_isfunction(L, -1)) {
-        lua_pushstring(L, (const char*)peer_addr);
-        lua_pcall_custom(L, 0, 0, 0);
+        lua_pushlstring(L, (const char*)peer_addr, 6);
+        lua_pcall_custom(L, 1, 0, 0);
+    } else {
+        Serial.println("Discovery function not found");
     }
 }
 
@@ -466,6 +523,11 @@ void addPeer(const esp_now_recv_info_t* esp_now_info) {
         Serial.println("Failed to add new peer");
         return;
     }
+
+    std::array<uint8_t, 6> arr;
+    std::copy(peerInfo.peer_addr, peerInfo.peer_addr + 6, arr.begin());
+
+    peerPingInfo[arr] = pingInfo();
 
     onDiscovery(peerInfo.peer_addr);
 }
@@ -507,6 +569,8 @@ void broadcastDiscoveryMessage() {
 
 // callback when data is sent
 void OnDataSent(const wifi_tx_info_t *mac_addr, esp_now_send_status_t status) {
+    std::lock_guard<std::mutex> lock(msg_mutex);
+
     Serial.print("Last Packet Send Status:\t");
     Serial.print(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
     Serial.print(": ");
@@ -517,6 +581,8 @@ void OnDataSent(const wifi_tx_info_t *mac_addr, esp_now_send_status_t status) {
 
 // callback for when data is received
 void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, int data_len) {
+    std::lock_guard<std::mutex> lock(msg_mutex);
+
     Serial.println("Recv data: ");
     Serial.println((const char*)data);
     Serial.println("-");
@@ -527,6 +593,15 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
         
         if (!esp_now_is_peer_exist(esp_now_info->src_addr)) {
             addPeer(esp_now_info);
+        }
+    } else if (isPingMessage(data, data_len)) {
+        sendMsg(esp_now_info->src_addr, (const char*)ping_ack_message, 8);
+    } else if (isPingAckMessage(data, data_len)) {
+        std::array<uint8_t, 6> arr;
+        std::copy(esp_now_info->src_addr, esp_now_info->src_addr + 6, arr.begin());
+        
+        if (peerPingInfo.contains(arr)){
+            peerPingInfo[arr].strikes = -1;
         }
     } else {
 #if DBG_SER
@@ -544,18 +619,6 @@ void OnDataRecv(const esp_now_recv_info_t* esp_now_info, const uint8_t *data, in
             Serial.println("Error: dropping this packet -- i got too many.");
         }
     }
-}
-
-// sends a message
-bool networkSendPing() {
-    if (!netInit) return false;
-
-    if (peerInit) {
-        const char msg[64] = "Nice to meet you :)";
-        return sendMsg(peerInfo.peer_addr, msg, sizeof(msg));
-    }
-
-    return false;
 }
 
 bool pushLuaValue(packet& pck, lua_State* L, int idx, bool isKey) {
@@ -738,14 +801,20 @@ int lua_sendMessage(lua_State* L) {
     return 1;
 }
 
+int getDirectPeerCount() {
+    esp_now_peer_num_t num;
+    if (espNowCall(esp_now_get_peer_num(&num), "esp_now_get_peer_num")) {
+        return num.total_num - 1;
+    } else {
+        return 0;
+    }
+}
+
 int lua_getPeerCount(lua_State* L) {
 #if DBG_SER
     Serial.println("GET PEER COUNT =========================================================");
 #endif
-    esp_now_peer_num_t num;
-    if (espNowCall(esp_now_get_peer_num(&num), "esp_now_get_peer_num")) {
-        lua_pushnumber(L, (double)num.total_num);
-    }
+    lua_pushnumber(L, (double)getDirectPeerCount());
 
     return 1;
 }
@@ -841,16 +910,66 @@ void networkSetup() {
 // call this to let the network manager tick
 void networkUpdate(float dt) {
     if (!netInit) return;
+    std::lock_guard<std::mutex> lock(msg_mutex);
 
     // broadcast loop
-    spass_time += dt;
-    if (spass_time >= SPASS_PERIOD_MS) {
+    discovery_time += dt;
+    if (discovery_time >= DISCOVERY_PERIOD_MS) {
         Serial.println("Broadcasting Discovery Message");
-        spass_time -= SPASS_PERIOD_MS;
+        discovery_time -= DISCOVERY_PERIOD_MS;
         broadcastDiscoveryMessage();
         return;
     }
     
+    // ping loop
+    ping_time += dt;
+    if (ping_time >= PING_PERIOD_MS) {
+        ping_time -= PING_PERIOD_MS;
+
+        if (peerPingInfo.size() > 0) {
+            Serial.println("Broadcasting Ping Message");
+        } else {
+            Serial.println("No peers to ping");
+            return;
+        }
+
+        for (auto it = peerPingInfo.begin(); it != peerPingInfo.end();) {
+            if (++it->second.strikes > PING_STRIKES) {
+                uint8_t addr[ESP_NOW_ETH_ALEN];
+                memcpy(addr, it->first.data(), sizeof(uint8_t) * ESP_NOW_ETH_ALEN);
+
+                esp_now_del_peer(it->first.data());
+                it = peerPingInfo.erase(it);
+
+                Serial.print("Update: Lost a peer!");
+                SerialPrintMAC(addr, "\n");
+
+                lua_getglobal(L, "myrtle_on_peer_lost");
+                if (lua_isfunction(L, -1)) {
+                    lua_pushlstring(L, (const char*)addr, 6);
+                    lua_pcall_custom(L, 1, 0, 0);
+                } else {
+                    Serial.println("Peer Lost function not found");
+                }
+
+            } else {
+                ++it;
+            }
+        }
+
+        bool success = false;
+        esp_now_peer_info_t peer;
+        int peerCount = getDirectPeerCount();
+        // it seems to count the broadcast address in the peer count
+        // but not in the peer list...
+        for (int i = 0; i < peerCount; i++) {
+            if (espNowCall(esp_now_fetch_peer(i == 0, &peer), "esp_now_fetch_peer")) {
+                sendMsg(peer.peer_addr, (const char*)ping_message, 8);
+            }
+        }
+        return;
+    }
+
     for (size_t i = 0; i < packets.size(); i++) {
 #if DBG_SER
         Serial.print("packet(");
