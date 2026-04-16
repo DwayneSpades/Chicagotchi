@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 #include <WiFi.h>
 #include <lapi.h>
 #include <cstdint>
@@ -861,6 +862,28 @@ void networkSetup() {
     Serial.println("dB");
     Serial.println("wifi channel ok");
     delay(100);
+
+    espNowCall(esp_wifi_set_ps(wifi_ps_type_t::WIFI_PS_MAX_MODEM), "esp_wifi_set_ps");
+
+    wifi_ps_type_t ps_type;
+    if (espNowCall(esp_wifi_get_ps(&ps_type), "esp_wifi_get_ps")) {
+        Serial.print("Using PS Mode: ");
+        switch (ps_type) {
+            case wifi_ps_type_t::WIFI_PS_NONE:
+                Serial.print("WIFI_PS_NONE");
+            break;
+            case wifi_ps_type_t::WIFI_PS_MIN_MODEM:
+                Serial.print("WIFI_PS_MIN_MODEM");
+            break;
+            case wifi_ps_type_t::WIFI_PS_MAX_MODEM:
+                Serial.print("WIFI_PS_MAX_MODEM");
+            break;
+            default:
+                Serial.print("Unkown wifi ps type");
+            break;
+        }
+        Serial.println("");
+    }
 
     // Init ESP-NOW
     if (esp_now_init() != ESP_OK) {
