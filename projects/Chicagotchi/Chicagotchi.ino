@@ -74,9 +74,9 @@
 
 //~ Slaps
 
-#include "luaState.h"
-#include "button.h"
-#include "networkManager.h"
+#include "src/luaState.h"
+#include "src/button.h"
+#include "src/network/network.h"
 
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
