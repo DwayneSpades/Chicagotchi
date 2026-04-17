@@ -101,7 +101,7 @@ bool packet::deserialize(lua_State* L) {
 
 #if DBG_SER
     Serial.println("packet::deserialize!");
-    printLuaStack(L);
+    luaUtil::printLuaStack(L);
 #endif
     for (; i < len; i++) {
         switch(buf[i]) {
@@ -118,7 +118,7 @@ bool packet::deserialize(lua_State* L) {
                 }
 
 #if DBG_SER
-                printLuaStack(L);
+                luaUtil::printLuaStack(L);
 #endif
                 if (!isKey) lua_settable(L, -3);
                 break;
@@ -129,7 +129,7 @@ bool packet::deserialize(lua_State* L) {
                 i++;
                 lua_pushboolean(L, (int)buf[i]);
 #if DBG_SER
-                printLuaStack(L);
+                luaUtil::printLuaStack(L);
 #endif
                 if (!isKey) lua_settable(L, -3);
                 break;
@@ -141,7 +141,7 @@ bool packet::deserialize(lua_State* L) {
                 lua_pushnumber(L, (double)buf[i]);
                 i += sizeof(double);
 #if DBG_SER
-                printLuaStack(L);
+                luaUtil::printLuaStack(L);
 #endif
                 if (!isKey) lua_settable(L, -3);
                 break;
@@ -164,7 +164,7 @@ bool packet::deserialize(lua_State* L) {
                 i += size - 1;
 
 #if DBG_SER
-                printLuaStack(L);
+                luaUtil::printLuaStack(L);
 #endif
                 if (!isKey) lua_settable(L, -3);
             }
@@ -215,7 +215,7 @@ bool packet::deserialize(lua_State* L) {
         }
         
 #if DBG_SER
-        printLuaStack(L);
+        luaUtil::printLuaStack(L);
 #endif
     }
 
@@ -228,7 +228,7 @@ bool packet::deserialize(lua_State* L) {
 
 #if DBG_SER
     Serial.println("Successful deserialization!!!");
-    printLuaStack(L);
+    luaUtil::printLuaStack(L);
 #endif
     return true;
 }
@@ -249,7 +249,7 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
         Serial.println("packet::serialize: nextloop");
 
         indent();  
-        printLuaStack(L);
+        luaUtil::printLuaStack(L);
 #endif
         if (pushLuaValue(L, -2, true)) { // key
             pushLuaValue(L, -1, false); // value

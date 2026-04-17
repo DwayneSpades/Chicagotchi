@@ -505,9 +505,9 @@ void setup(void) {
   lua_register(L, "myrtlePrint", lua_print);
   lua_register(L, "myrtleSetTextColor", lua_setTextColor);
 
-  lua_register(L, "sendMessage", lua_sendMessage);
-  lua_register(L, "getPeerCount", lua_getPeerCount);
-  lua_register(L, "getPeerAddr", lua_getPeerAddr);
+  lua_register(L, "sendMessage", network::lua_sendMessage);
+  lua_register(L, "getPeerCount", network::lua_getPeerCount);
+  lua_register(L, "getPeerAddr", network::lua_getPeerAddr);
 
   tft.println("Loaded Lua functions successfully");
   //delay(2000);
@@ -577,9 +577,13 @@ void setup(void) {
   tft.println(strReason);
   Serial.println(strReason);
   delay(3000);
-  networkSetup();
 
-
+#if _NETWORK_
+  // if this happens after myrtle_load, it freezes 
+  // :/ idk
+  network::setup();
+#endif
+  
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(0, 0);
@@ -591,10 +595,6 @@ void setup(void) {
     //tft.println("ran myrtle load successfully");
     lua_pcall(L, 0, 0, 0);
   }
-  
-#if _NETWORK_
-  networkSetup();
-#endif
   
   //delay(4000);
 
@@ -620,9 +620,9 @@ void loop() {
   updateButtons();
 
 #if DBG_SER
-  printLuaStack(L);
+  luaUtil::printLuaStack(L);
   Serial.println("pre myrtle_update");
-  printLuaStack(L);
+  luaUtil::printLuaStack(L);
 #endif
 
   //engine loop update from main.lua
@@ -634,7 +634,7 @@ void loop() {
 
 #if DBG_SER
   Serial.println("pre myrtle_draw");
-  printLuaStack(L);
+  luaUtil::printLuaStack(L);
 #endif
 
   lua_getglobal(L, "myrtle_draw");
@@ -645,19 +645,18 @@ void loop() {
 
 #if DBG_SER
   Serial.println("post myrtle_draw");
-  printLuaStack(L);
+  luaUtil::printLuaStack(L);
 #endif
 
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
   #if _NETWORK_
-    networkClear();
-    networkUpdate(deltaTime);
+    network::update(deltaTime);
   #endif
 #if DBG_SER
     Serial.println("post network update");
-    printLuaStack(L);
+    luaUtil::printLuaStack(L);
 #endif
 
   canvas.println("Frame Time (ms): ");
@@ -666,7 +665,7 @@ void loop() {
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
 
 #if DBG_SER
-  printLuaStack(L);
+  luaUtil::printLuaStack(L);
 #endif
 
   // not sure if this check still matters
@@ -676,7 +675,7 @@ void loop() {
     if (t == LUA_TNIL) {
       lua_pop(L, -1);
       Serial.println("ruh-roh -- detected a random nil on the stack! That's not good. Popped it. Stack is now: ");
-      printLuaStack(L);
+      luaUtil::printLuaStack(L);
     }
   }
 

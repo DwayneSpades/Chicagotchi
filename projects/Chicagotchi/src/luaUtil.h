@@ -6,6 +6,7 @@
 
 namespace luaUtil {
     void printTypeAndValue(lua_State* L, int idx);
+    void printLuaStack(lua_State* L);
 }
 
 #endif

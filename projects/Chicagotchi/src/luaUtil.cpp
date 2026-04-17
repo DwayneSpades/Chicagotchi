@@ -34,3 +34,17 @@ void luaUtil::printTypeAndValue(lua_State* L, int idx) {
     }
     Serial.println("");
 }
+
+void luaUtil::printLuaStack(lua_State* L) {
+    if (lua_gettop(L) < 1) {
+        Serial.println("\t\t0: printLuaStack: lua_gettop <= 0");
+    } else {
+        for (int i = 1; i <= lua_gettop(L); i++) {
+            Serial.print("\t\t");
+            Serial.print(i);
+            Serial.print(": ");
+            luaUtil::printTypeAndValue(L, i);
+        }
+        Serial.println("-");
+    }
+}
