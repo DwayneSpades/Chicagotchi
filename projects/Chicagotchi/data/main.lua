@@ -18,6 +18,10 @@ myrtle.print = myrtlePrint
 myrtle.println = myrtlePrintln
 myrtle.setTextColor = myrtleSetTextColor
 
+myrtle.sendMessage = sendMessage
+myrtle.getPeerCount = getPeerCount
+myrtle.getPeerAddr = getPeerAddr
+
 myrtle.buttons = {}
 myrtle.buttons.D0 = 0
 myrtle.buttons.D1 = 1
@@ -27,6 +31,7 @@ myrtle.require("vector2.lua")
 myrtle.require("gameSceneManager.lua")
 myrtle.require("bitmapReader.lua")
 myrtle.require("miscTools.lua")
+myrtle.require("packets.lua")
 
 engineTime=0;
 
@@ -76,18 +81,31 @@ end
 
 sinDrive=0
 
-
 local sx = 0;
 local sy = 0;
+
+local recvData = nil
 
 function myrtle_update()
 	
 	sinDrive = sinDrive + 0.05
 	spriteObject.position.x = sx + 100 + math.sin(sinDrive)*20
 	spriteObject.position.y = sy + 32 + math.cos(sinDrive)*20
-	
+
+	-- packet testing - feel free to change
 	if (myrtle.buttonDown(myrtle.buttons.D0)) then
-		sy = sy + 15
+		if (myrtle.getPeerCount() > 0) then
+			sy = sy + 15
+			myrtle.sendMessage(myrtle.getPeerAddr(1), PID_HELLO, {
+				obj1 = 5,
+				obj2 = 3.5,
+				obj3 = "This is a string",
+				obj4 = {
+					obj1 = nil,
+					obj2 = "sneerf"
+				}
+			})
+		end
 	end
 
 	runGarbageCollector()
@@ -156,7 +174,6 @@ function myrtle_draw()
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
 	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
-	
 	
 end
 
