@@ -74,6 +74,7 @@
 
 //~ Slaps
 
+#include "src/version.h"
 #include "src/luaState.h"
 #include "src/button.h"
 #include "src/network/network.h"
@@ -661,6 +662,12 @@ void loop() {
 
   canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
+
+  // default font is ascii 5x7 - 1px padding
+  canvas.setCursor(canvas.width() - (sizeof(CHICAGOTCHI_VERSION)-1) * (6), canvas.height() - 7);
+  canvas.setTextColor(0xFFFF);
+  canvas.print(CHICAGOTCHI_VERSION);
+
   //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
 
