@@ -31,8 +31,8 @@ namespace network {
 
     std::mutex msg_mutex;
 
-    #define DBG_USE_LOOPBACK 0
-    #define DBG_SER 0
+    #define DBG_USE_LOOPBACK 1
+    #define DBG_SER 1
 
     #if DBG_SER
     int tab = 0;
@@ -333,7 +333,7 @@ namespace network {
         }
 
     #if DBG_USE_LOOPBACK
-        packets.push_back(packet(destAddr, pck.data.data(), pck.data.size()));
+        // packets.push_back(packet(destAddr, pck.data.data(), pck.data.size()));
     #endif
 
         return 1;
@@ -352,8 +352,11 @@ namespace network {
     #if DBG_SER
         Serial.println("GET PEER COUNT =========================================================");
     #endif
+#if DBG_USE_LOOPBACK
+        lua_pushnumber(L, 1.0);
+#else
         lua_pushnumber(L, (double)getDirectPeerCount());
-
+#endif
         return 1;
     }
 

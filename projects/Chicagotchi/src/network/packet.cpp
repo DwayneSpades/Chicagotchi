@@ -5,6 +5,17 @@
 
 #include "..\luaUtil.h"
 
+#define DBG_SER 1
+
+#if DBG_SER
+int _tab = 0;
+void _indent() {
+    for (int i=0; i<_tab; i++) {
+        Serial.print("\t");
+    }
+}
+#endif
+
 size_t my_strlen_s(const char* buf, int max) {
     for (size_t i = 0; i < max; i++){
         if (*buf == 0x0) {
@@ -22,13 +33,21 @@ packet::packet(const uint8_t* src_addr) {
 }
 
 packet::packet(const uint8_t* src_addr, const uint8_t* buf, int len) {
-    memcpy(sender_addr, src_addr, ESP_NOW_ETH_ALEN);
-    data.insert(data.end(), buf, buf+len);
+    // memcpy(sender_addr, src_addr, ESP_NOW_ETH_ALEN);
+    // data.insert(data.end(), buf, buf+len);
 }
 
 bool packet::serialize(uint16_t packetId, lua_State* L, int idx) {
-    pushPacketId(packetId);
-    processLuaTable(L, idx, 0);
+    // data.push_back(0x1);
+    // data.push_back(0x0);
+    // pushTableBegin();
+    // pushTableKey();
+    // pushString("Foo");
+    // pushTableValue();
+    // pushNumber(1.0);
+    // pushTableEnd();
+    // pushPacketId(packetId);
+    // processLuaTable(L, idx, 0);
 }
 
 bool packet::deserialize(lua_State* L) {
@@ -148,19 +167,19 @@ bool packet::deserialize(lua_State* L) {
             case packet_stamp::string:
             {
                 i++;
-                uint16_t size = buf[i] | (buf[i+1] << 8);
+                uint16_t size = buf[i];// | (buf[i+1] << 8);
                 i += sizeof(uint16_t);
-                char strbuf[MAX_STR_SIZE];
-                memcpy(strbuf, buf + i, sizeof(char) * size);
-                strbuf[size - 1] = 0x0; // jic
+                // char strbuf[MAX_STR_SIZE];
+                // memcpy(strbuf, buf + i, sizeof(char) * size);
+                // strbuf[size - 1] = 0x0; // jic
 #if DBG_SER
                 Serial.print("\t- packet_stamp::string: size=");
                 Serial.print(size);
                 Serial.print(", ");
-                Serial.print(strbuf);
+                Serial.print("ffs");//strbuf);
                 Serial.println("");
 #endif
-                lua_pushstring(L, strbuf);
+                lua_pushstring(L, "ffs");
                 i += size - 1;
 
 #if DBG_SER
@@ -245,10 +264,10 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
     // 3 (-1): param1.values[0]
     while (lua_next(L, idx) != 0) {
 #if DBG_SER
-        indent();
+        _indent();
         Serial.println("packet::serialize: nextloop");
 
-        indent();  
+        _indent();  
         luaUtil::printLuaStack(L);
 #endif
         if (pushLuaValue(L, -2, true)) { // key
@@ -257,9 +276,9 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
             int valueT = lua_type(L, -1);
             if (valueT == LUA_TTABLE) {
 #if DBG_SER
-                indent();
+                _indent();
                 Serial.println("{");
-                tab++;
+                _tab++;
 #endif
 
                 if (depth > MAX_TABLE_DEPTH) {
@@ -272,13 +291,13 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
                     return false;
                 }
 #if DBG_SER
-                tab--;
-                indent();
+                _tab--;
+                _indent();
                 Serial.println("}");
 #endif
             } else {
 #if DBG_SER
-                indent();
+                _indent();
 #endif
             }
         }
