@@ -517,7 +517,6 @@ namespace network {
                 }
             }
 
-            bool success = false;
             esp_now_peer_info_t peer;
             int peerCount = getDirectPeerCount();
             // it seems to count the broadcast address in the peer count

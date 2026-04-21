@@ -28,7 +28,7 @@ packet::packet(const uint8_t* src_addr, const uint8_t* buf, int len) {
 
 bool packet::serialize(uint16_t packetId, lua_State* L, int idx) {
     pushPacketId(packetId);
-    processLuaTable(L, idx, 0);
+    return processLuaTable(L, idx, 0);
 }
 
 bool packet::deserialize(lua_State* L) {

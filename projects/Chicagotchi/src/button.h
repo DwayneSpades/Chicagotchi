@@ -57,7 +57,7 @@ void updateButtons() {
 }
 
 bool checkButtonIndex(uint8_t index) {
-  if (index < 0 || index >= BUTTON_COUNT) {
+  if (index >= BUTTON_COUNT) {
     Serial.print("Error! Expected a button index value between 0, and ");
     Serial.print(BUTTON_COUNT - 1);
     Serial.print("(inclusive)");

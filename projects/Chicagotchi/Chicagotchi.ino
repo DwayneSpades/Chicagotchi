@@ -96,8 +96,7 @@ int lua_drawCircle(lua_State* L)
 	int16_t x = (int16_t)lua_tonumber(L, 1);
   int16_t y = (int16_t)lua_tonumber(L, 2);
   int16_t r = (int16_t)lua_tonumber(L, 3);
-  int16_t num = stoi("0xffff00", nullptr, 16);
-
+  // int16_t num = stoi("0xffff00", nullptr, 16);
   //num = (floor(num * (16 - 1) + 0.5)) / (24 - 1);
 	//create the drawable and push into the map
   canvas.drawCircle(x, y, r, 0xFB94); //.drawCircle(x, y, r, ST77XX_WHITE);
@@ -306,8 +305,8 @@ int lua_drawBitmap(lua_State* L)
 
 void custom_memcpy(void* dest, const void* src, int len)
 {
-    char* d = static_cast<char*>(dest);
-    const char* s = static_cast<const char*>(src);
+    // char* d = static_cast<char*>(dest);
+    // const char* s = static_cast<const char*>(src);
     
     for (int i = 0; i < len; ++i)
     {
