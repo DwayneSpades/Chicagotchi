@@ -349,18 +349,22 @@ namespace network {
     }
 
     int lua_getPeerCount(lua_State* L) {
-    #if DBG_SER
+#if DBG_SER
         Serial.println("GET PEER COUNT =========================================================");
-    #endif
+#endif
+#if DBG_USE_LOOPBACK
+        lua_pushnumber(L, 1.0);
+#else
         lua_pushnumber(L, (double)getDirectPeerCount());
+#endif
 
         return 1;
     }
 
     int lua_getPeerAddr(lua_State* L) {
-    #if DBG_SER
+#if DBG_SER
         Serial.println("GET PEER ADDR =========================================================");
-    #endif
+#endif
         int index = lua_tointeger(L, 1); // assumes we're getting a lua-index (first=1)
 
         bool success = false;
