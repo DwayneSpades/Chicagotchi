@@ -157,7 +157,7 @@ function readBMP(fileName, pallet)
   --collect garbage in between loads to not overwhelm the Runtime memory limit with the size of the garbage collector
   collectgarbage("collect")
   
-	myrtle.print("read bmp: "..fileName.." - "..string.format("%i",collectgarbage('count')).."\n")
+	myrtle.print("read bmp: "..fileName.." - "..string.format("%i",collectgarbage('count')).." kb\n")
 
 	return spriteObject.new(fileName)
 	

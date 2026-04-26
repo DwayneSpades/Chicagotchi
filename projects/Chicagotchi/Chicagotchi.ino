@@ -25,8 +25,10 @@
 #include <lvm.h>
 #include <lzio.h>
 
+#include <Adafruit_ST7735.h>
 #include <Adafruit_ST7789.h>
-#include <esp_system.h>
+#include <Adafruit_ST7796S.h>
+#include <Adafruit_ST77xx.h>
 
 #include <stdio.h>
 #include <stddef.h>
@@ -74,11 +76,6 @@
 
 //~ Slaps
 
-#include "src/version.h"
-#include "src/luaState.h"
-#include "src/button.h"
-#include "src/network/network.h"
-
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 uint32_t engineTime = 0;
@@ -96,7 +93,8 @@ int lua_drawCircle(lua_State* L)
 	int16_t x = (int16_t)lua_tonumber(L, 1);
   int16_t y = (int16_t)lua_tonumber(L, 2);
   int16_t r = (int16_t)lua_tonumber(L, 3);
-  // int16_t num = stoi("0xffff00", nullptr, 16);
+  int16_t num = stoi("0xffff00", nullptr, 16);
+
   //num = (floor(num * (16 - 1) + 0.5)) / (24 - 1);
 	//create the drawable and push into the map
   canvas.drawCircle(x, y, r, 0xFB94); //.drawCircle(x, y, r, ST77XX_WHITE);
@@ -313,8 +311,8 @@ int lua_drawBitmap(lua_State* L)
 
 void custom_memcpy(void* dest, const void* src, int len)
 {
-    // char* d = static_cast<char*>(dest);
-    // const char* s = static_cast<const char*>(src);
+    char* d = static_cast<char*>(dest);
+    const char* s = static_cast<const char*>(src);
     
     for (int i = 0; i < len; ++i)
     {
@@ -367,10 +365,6 @@ int lua_println(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
 
-#if DBG_SER
-  Serial.print("lua_println: ");
-  Serial.println(stuff);
-#endif
 	//create the drawable and push into the map
   canvas.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
@@ -393,11 +387,6 @@ int lua_setTextColor(lua_State* L)
 int lua_print(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
-#if DBG_SER
-  Serial.print("lua_print: ");
-  Serial.println(stuff);
-#endif
-
 	//create the drawable and push into the map
   tft.setTextColor(ST77XX_WHITE);
   tft.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
@@ -431,7 +420,6 @@ int lua_require(lua_State* L)
   return 1;
 }
 
-<<<<<<< HEAD
 int lua_getTime(lua_State* L)
 {
   lua_pushnumber(L,(float)engineTime);
@@ -442,8 +430,6 @@ int lua_getTime(lua_State* L)
 //SET UP LUA State AS A GLOBAL
 lua_State* L = luaL_newstate();
 
-=======
->>>>>>> f93c17fdb3d913bfc63c645201cae39bf7766a5e
 void runScript(const char* fileName)
 {
 
@@ -469,13 +455,9 @@ void runScript(const char* fileName)
   }
 }
 
-#define _NETWORK_ 1
 
 void setup(void) {
   Serial.begin(115200);
-  delay(500);
-  Serial.println("");
-  Serial.println("");
 
   // turn on backlite
   pinMode(TFT_BACKLITE, OUTPUT);
@@ -516,21 +498,17 @@ void setup(void) {
   lua_register(L, "drawBitmap", lua_drawBitmap);
 
   lua_register(L, "getTime", lua_getTime);
-
+  /*
   lua_register(L, "buttonDown", lua_buttonDown);
   lua_register(L, "buttonUp", lua_buttonUp);
   lua_register(L, "buttonHeld", lua_buttonHeld);
   lua_register(L, "buttonUnheld", lua_buttonUnheld);
-
+  */
   lua_register(L, "convertHex", lua_convertHex);
   lua_register(L, "myrtleRequire", lua_require);
   lua_register(L, "myrtlePrintln", lua_println);
   lua_register(L, "myrtlePrint", lua_print);
   lua_register(L, "myrtleSetTextColor", lua_setTextColor);
-
-  lua_register(L, "sendMessage", network::lua_sendMessage);
-  lua_register(L, "getPeerCount", network::lua_getPeerCount);
-  lua_register(L, "getPeerAddr", network::lua_getPeerAddr);
 
   tft.println("Loaded Lua functions successfully");
   //delay(2000);
@@ -538,75 +516,8 @@ void setup(void) {
   //luaL_dostring(L,"package.path = package.path .. ';./?.lua;/littlefs/?.lua'");
   runScript("main.lua");
   tft.println("Loaded Lua scripts successfully");
-  
-  esp_reset_reason_t reason = esp_reset_reason();
-  const char* strReason = "unexpected value";
-  tft.print("RESET REASON: ");
-  Serial.print("RESET REASON: ");
-  switch (reason) {
-    case esp_reset_reason_t::ESP_RST_UNKNOWN:
-      strReason = "UNKNOWN";
-    break;
+  delay(2000);
 
-    case esp_reset_reason_t::ESP_RST_POWERON:
-      strReason = "POWERON";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_SW:
-      strReason = "SOFTWARE";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_PANIC:
-      strReason = "PANIC !!!";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_INT_WDT:
-    case esp_reset_reason_t::ESP_RST_TASK_WDT:
-    case esp_reset_reason_t::ESP_RST_WDT:
-      strReason = "WATCH DOG";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_DEEPSLEEP:
-      strReason = "SLEEP";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_BROWNOUT:
-      strReason = "BROWNOUT!!!";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_SDIO:
-    case esp_reset_reason_t::ESP_RST_USB:
-    case esp_reset_reason_t::ESP_RST_JTAG:
-      strReason = "PERIPHERAL";
-      break;
-
-    case esp_reset_reason_t::ESP_RST_EFUSE:
-      strReason = "EFUSE ERROR";
-      break;
-
-    case esp_reset_reason_t::ESP_RST_PWR_GLITCH:
-      strReason = "POWER GLITCH";
-      break;
-
-    case esp_reset_reason_t::ESP_RST_CPU_LOCKUP:
-      strReason = "CPU LOCKUP";
-      break;
-
-    default:
-      tft.print("unhandled case: ");
-      tft.println(reason);
-      break;
-  }
-  tft.println(strReason);
-  Serial.println(strReason);
-  delay(3000);
-
-#if _NETWORK_
-  // if this happens after myrtle_load, it freezes 
-  // :/ idk
-  network::setup();
-#endif
-  
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(0, 0);
@@ -618,6 +529,7 @@ void setup(void) {
     //tft.println("ran myrtle load successfully");
     lua_pcall(L, 0, 0, 0);
   }
+  
   
   //delay(4000);
 
@@ -634,83 +546,32 @@ void setup(void) {
 
 void loop() {
   previousTime = engineTime;
+  
 
   //canvas lets the draw to screen be not have flicker
   //memset(_screenBuffer.buffer, 0, 32400*2);
   canvas.fillScreen(0);
   canvas.setCursor(0, 0);
 
-  updateButtons();
-
-#if DBG_SER
-  luaUtil::printLuaStack(L);
-  Serial.println("pre myrtle_update");
-  luaUtil::printLuaStack(L);
-#endif
-
   //engine loop update from main.lua
   lua_getglobal(L, "myrtle_update");
   if (lua_isfunction(L, -1))
   {
-    lua_pcall_custom(L, 0, 0, 0);
+    lua_pcall(L, 0, 0, 0);
   }
-
-#if DBG_SER
-  Serial.println("pre myrtle_draw");
-  luaUtil::printLuaStack(L);
-#endif
-
+  //engine draw from main.lua
   lua_getglobal(L, "myrtle_draw");
   if (lua_isfunction(L, -1))
   {
-    lua_pcall_custom(L, 0, 0, 0);
+    lua_pcall(L, 0, 0, 0);
   }
-
-#if DBG_SER
-  Serial.println("post myrtle_draw");
-  luaUtil::printLuaStack(L);
-#endif
 
   engineTime = millis();
   deltaTime = engineTime - previousTime;
 
-  #if _NETWORK_
-    network::update(deltaTime);
-  #endif
-#if DBG_SER
-    Serial.println("post network update");
-    luaUtil::printLuaStack(L);
-#endif
-
   canvas.println("Frame Time (ms): ");
   canvas.println(deltaTime);
 
-  // default font is ascii 5x7 - 1px padding
-  canvas.setCursor(canvas.width() - (sizeof(CHICAGOTCHI_VERSION)-1) * (6), canvas.height() - 7);
-  canvas.setTextColor(0xFFFF);
-  canvas.print(CHICAGOTCHI_VERSION);
-
   //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
   tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
-
-#if DBG_SER
-  luaUtil::printLuaStack(L);
-#endif
-
-  // not sure if this check still matters
-  // we'll keep it around for debug purposes
-  if (lua_gettop(L) > 0) {
-    int t = lua_type(L, 1);
-    if (t == LUA_TNIL) {
-      lua_pop(L, -1);
-      Serial.println("ruh-roh -- detected a random nil on the stack! That's not good. Popped it. Stack is now: ");
-      luaUtil::printLuaStack(L);
-    }
-  }
-
-#if DBG_SER
-  Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
-  Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
-  Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
-#endif
 }

@@ -33,15 +33,13 @@ myrtle.require("vector2.lua")
 myrtle.require("gameSceneManager.lua")
 myrtle.require("bitmapReader.lua")
 myrtle.require("miscTools.lua")
-<<<<<<< HEAD
+
 myrtle.require("alarm.lua")
 myrtle.require("alarmManager.lua")
 myrtle.require("scene_1.lua")
 myrtle.require("scene_2.lua")
 
-=======
 myrtle.require("packets.lua")
->>>>>>> f93c17fdb3d913bfc63c645201cae39bf7766a5e
 
 engineTime=0;
 
@@ -106,43 +104,14 @@ end
 
 sinDrive=0
 
-<<<<<<< HEAD
 
 sx = 0;
 sy = 0;
 engineTime=0
+
 function myrtle_update()
   engineTime = myrtle.getTime()
   gameSceneManager:update()
-=======
-local sx = 0;
-local sy = 0;
-
-local recvData = nil
-
-function myrtle_update()
-	
-	sinDrive = sinDrive + 0.05
-	spriteObject.position.x = sx + 100 + math.sin(sinDrive)*20
-	spriteObject.position.y = sy + 32 + math.cos(sinDrive)*20
-
-	-- packet testing - feel free to change
-	if (myrtle.buttonDown(myrtle.buttons.D0)) then
-		if (myrtle.getPeerCount() > 0) then
-			sy = sy + 15
-			myrtle.sendMessage(myrtle.getPeerAddr(1), PID_HELLO, {
-				obj1 = 5,
-				obj2 = 3.5,
-				obj3 = "This is a string",
-				obj4 = {
-					obj1 = nil,
-					obj2 = "sneerf"
-				}
-			})
-		end
-	end
->>>>>>> f93c17fdb3d913bfc63c645201cae39bf7766a5e
-
 	runGarbageCollector()
 end
 
@@ -150,74 +119,12 @@ function myrtle_draw()
 	--draw things here
 	circleObject:draw()
 	--myrtle.drawCircle(32,32,32)
-	--drawSprite(testSprite,spriteObject.position+vector2.new(0,0))
-	myrtle.println('Memory actually used (in kB): '..string.format("%i",collectgarbage('count')) )
   
-  myrtle.println("engine time: "..engineTime)
-	
-<<<<<<< HEAD
+	myrtle.println('Memory actually used (in kB): '..string.format("%i",collectgarbage('count')) )
+  --myrtle.println("engine time: "..engineTime)
+
 	gameSceneManager:draw()
   
-  
-=======
-	--drawBitmap("testBMP",vector2.new(50,50))
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-90,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-90,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,0))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-30))
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
-	
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(60,-10))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-60,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(-30,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(0,-30))
-	drawDrawable("Gato_Roboto.bmp",spriteObject.position+vector2.new(30,-30))
-	
->>>>>>> f93c17fdb3d913bfc63c645201cae39bf7766a5e
 end
 
 --call update from C++ loop
