@@ -287,21 +287,21 @@ end
 
 function circleRectCollision(circle,rect)
   --find the edges to test
-  local posEdge = vector2.new(circle.position.x,circle.position.y)
+  local collisionPoint = vector2.new(circle.position.x,circle.position.y)
   
   if(circle.position.x < rect.position.x) then
-    posEdge.x = rect.position.x
+    collisionPoint.x = rect.position.x
   elseif (circle.position.x > (rect.position.x + rect.width)) then
-    posEdge.x = rect.position.x + rect.width
+    collisionPoint.x = rect.position.x + rect.width
   end
   
   if(circle.position.y < rect.position.y) then
-    posEdge.y = rect.position.y
+    collisionPoint.y = rect.position.y
   elseif (circle.position.y > (rect.position.y + rect.height)) then
-    posEdge.y = rect.position.y + rect.height
+    collisionPoint.y = rect.position.y + rect.height
   end
   
-  local dist = vector2.magnitude(circle.position - posEdge)
+  local dist = vector2.magnitude(circle.position - collisionPoint)
   
   if(dist <= circle.radius) then
     --it shuold give info on what side we collided with...
@@ -314,18 +314,18 @@ end
 
 function circleRectCollisionInfo(circle,rect)
   --find the edges to test
-  local posEdge = vector2.new(circle.position.x,circle.position.y)
+  local collisionPoint = vector2.new(circle.position.x,circle.position.y)
   
   if(circle.position.x < rect.position.x) then
-    posEdge.x = rect.position.x
+    collisionPoint.x = rect.position.x
   elseif (circle.position.x > (rect.position.x + rect.width)) then
-    posEdge.x = rect.position.x + rect.width
+    collisionPoint.x = rect.position.x + rect.width
   end
   
   if(circle.position.y < rect.position.y) then
-    posEdge.y = rect.position.y
+    collisionPoint.y = rect.position.y
   elseif (circle.position.y > (rect.position.y + rect.height)) then
-    posEdge.y = rect.position.y + rect.height
+    collisionPoint.y = rect.position.y + rect.height
   end
   
   local lDist= circle.position.x-rect.position.x
@@ -334,24 +334,24 @@ function circleRectCollisionInfo(circle,rect)
   local dDist= (rect.position.y+rect.height) - circle.position.y
   
   local shortest = lDist
-  posEdge = vector2.new(rect.position.x,circle.position.y)
+  collisionPoint = vector2.new(rect.position.x,circle.position.y)
   local dir = vector2.new(-1,0)
   
   if shortest > rDist then
     shortest = rDist
-    posEdge = vector2.new(rect.position.x+rect.width,circle.position.y)
+    collisionPoint = vector2.new(rect.position.x+rect.width,circle.position.y)
     dir = vector2.new(1,0)
   end
   
   if shortest > uDist then
     shortest = uDist
-    posEdge = vector2.new(circle.position.x,rect.position.y)
+    collisionPoint = vector2.new(circle.position.x,rect.position.y)
     dir = vector2.new(0,-1)
   end
   
   if shortest > dDist then
     shortest = dDist
-    posEdge = vector2.new(circle.position.x,rect.position.y+rect.height)
+    collisionPoint = vector2.new(circle.position.x,rect.position.y+rect.height)
     dir = vector2.new(0,1)
   end
   
@@ -359,7 +359,7 @@ function circleRectCollisionInfo(circle,rect)
   --local dir = vector2.normalized(circle.position - posEdge)
   --return collision point and dir
 
-  return posEdge,dir
+  return collisionPoint,dir
   
 end
 

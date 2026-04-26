@@ -1,6 +1,6 @@
 gameSceneManager={}
 gameSceneManager.__index=gameSceneManager
-gameSceneManager.currentScreen = nil
+gameSceneManager.currentScene = nil
 setmetatable({},gameSceneManager)
 screenLoaded=false
 --I need to be able to instantiate gamescreens
@@ -10,36 +10,48 @@ screenLoaded=false
 --make exceptions to catch if the user forgot to give the scene object a intialize(), update(), or draw() methods
 --tell the user they goofed up and to add those required functions for scenes to work properly
 
-function gameSceneManager:setScreen(s)
-
+function gameSceneManager:setScene(s)
+  --assert(self.currentScene.destroy)
+  
   --unload current screen
-  if(self.currentScreen~=nil)then
-    self.currentScreen:destroy()
-    self.currentScreen = nil
+  if(self.currentScene~=nil)then
+    if self.currentScene.destroy~=nil then
+      self.currentScene:destroy()
+    end
+    self.currentScene = nil
   end
   
   --set and initiate new screen
-  self.currentScreen = s
-  self.currentScreen:initialize()
-  self.currentScreen:update(0)
+  self.currentScene = s
+  --assert(self.currentScene.initialize)
+  self.currentScene:initialize()
+  self.currentScene:update(0)
 end
 
 function gameSceneManager:unloadScreen()
-  if(self.currentScreen~=nil)then
-    self.currentScreen:destroy()
-    self.currentScreen = nil
+  
+  if(self.currentScene~=nil)then
+    if self.currentScene.destroy~=nil then
+      self.currentScene:destroy()
+    end
+    self.currentScene = nil
   end
 end
 
 function gameSceneManager:update()
-  if(self.currentScreen~=nil)then
-    self.currentScreen:update()
+  --assert(self.currentScene.update)
+  alarmManager:update()
+  
+  if(self.currentScene~=nil)then
+    self.currentScene:update()
   end
+  
 end
 
 function gameSceneManager:draw()
-  if(self.currentScreen~=nil)then
-    self.currentScreen:draw()
+  --assert(self.currentScene.draw)
+  if(self.currentScene~=nil)then
+    self.currentScene:draw()
   end
   
 end

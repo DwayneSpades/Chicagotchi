@@ -10,6 +10,20 @@ function pixelObject.new(pos,color)
 	return instance
 end
 
+spriteObject = {}
+spriteObject.__index = spriteObject
+
+function spriteObject.new(name)
+  local instance = setmetatable({}, spriteObject)
+  instance.name = name or "unknown"
+  
+  return instance
+end
+
+function spriteObject:draw(pos)
+  drawDrawable(self.name,pos)
+end
+
 --load the bmp pixels to memory to be drawn back faster
 function readBMP(fileName, pallet)
 	local bitmap={}
@@ -139,15 +153,17 @@ function readBMP(fileName, pallet)
 		myrtle.loadPixel(fileName, i-1, bitmap[index].color)
 	end
 	
-	myrtle.print("successfully read bmp\n")
-	
-	return bitmap
+  bitmap = nil
+  --collect garbage in between loads to not overwhelm the Runtime memory limit with the size of the garbage collector
+  collectgarbage("collect")
+  
+	myrtle.print("read bmp: "..fileName.." - "..string.format("%i",collectgarbage('count')).."\n")
+
+	return spriteObject.new(fileName)
 	
 end
 
 function drawDrawable(filename,pos)
 	--I want to pass the table to CPP to draw the bit map straight up
-	local position = pos or vector2.new()
-	
-	myrtle.drawSprite(filename,position.x,position.y)
+	myrtle.drawSprite(filename,pos.x,pos.y)
 end

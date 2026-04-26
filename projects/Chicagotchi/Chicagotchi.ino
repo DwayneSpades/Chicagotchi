@@ -172,13 +172,19 @@ public:
 private:
 };
 
+bool createIsland = true;
+int xIterator = 0;
+int yIterator = 0;
+int lineIndex = 0;
+int islandIndex = -1;
+
 sprite::sprite(int _w, int _h, int len)
 {
   width = _w;
   height = _h;
 
   pixels = new uint16_t[len];
-  pixelIslands = new pixelIsland[500];
+  pixelIslands = new pixelIsland[150];
 }
 
 //make an array of pixels to store in the sprite Storage
@@ -199,6 +205,12 @@ int lua_createSprite(lua_State* L)
 
   sprites[name] = new sprite(w,h,len);
   
+  createIsland = true;
+  xIterator = 0;
+  yIterator = 0;
+  lineIndex = 0;
+  islandIndex = -1;
+
   return 1;
 }
 
@@ -206,11 +218,7 @@ int lua_createSprite(lua_State* L)
 //organize the pixels into line segment arrays...
 //count the pixels Islands by their visible pixels
 //if transparent pixel found then do not create or add a pixel island object to the pixel island list.
-bool createIsland = true;
-int xIterator = 0;
-int yIterator = 0;
-int lineIndex = 0;
-int islandIndex = -1;
+
 
 pixelIsland *currentIsland = new pixelIsland();
 
@@ -414,6 +422,12 @@ int lua_require(lua_State* L)
   return 1;
 }
 
+int lua_getTime(lua_State* L)
+{
+  lua_pushnumber(L,(float)engineTime);
+  return 1;
+}
+
 
 //SET UP LUA State AS A GLOBAL
 lua_State* L = luaL_newstate();
@@ -484,6 +498,8 @@ void setup(void) {
   lua_register(L, "loadPixel", lua_loadPixel);
   lua_register(L, "drawSprite", lua_drawSprite);
   lua_register(L, "drawBitmap", lua_drawBitmap);
+
+  lua_register(L, "getTime", lua_getTime);
 
   lua_register(L, "buttonDown", lua_buttonDown);
   lua_register(L, "buttonUp", lua_buttonUp);

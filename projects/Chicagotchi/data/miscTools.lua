@@ -20,13 +20,21 @@ function copy(o, seen)
   return no
 end
 
+function getTableSize(t)
+    local count = 0
+    for _, __ in pairs(t) do
+        count = count + 1
+    end
+    return count
+end
+
 function runGarbageCollector()
   garbageThrottle()
   
-  local start = copy(engineTime)
+  local start = engineTime
   for i = 1, 25 do
 	  collectgarbage("step",collectionAmount)
-	  if engineTime - start > 0.1 then
+	  if engineTime - start > 0.01 then
 		  break
 	  end
   end
@@ -37,14 +45,14 @@ end
 function garbageThrottle()
   local garbageCount =  collectgarbage('count')
 
-  if garbageCount > 1800 then
+  if garbageCount > 120 then
+    collectionAmount = 50
+  elseif garbageCount > 100 then
     collectionAmount = 25
-  elseif garbageCount > 1700 then
+  elseif garbageCount > 80 then
     collectionAmount = 10
-  elseif garbageCount > 1600 then
+  elseif garbageCount > 60 then 
     collectionAmount = 5
-  elseif garbageCount > 1500 then 
-    collectionAmount = 2
   else
     collectionAmount = 1
   end
