@@ -103,7 +103,8 @@ function myrtle_update()
 				obj4 = {
 					obj1 = nil,
 					obj2 = "sneerf"
-				}
+				},
+				obj5 = false
 			})
 		end
 	end

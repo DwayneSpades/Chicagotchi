@@ -5,6 +5,17 @@
 
 #include "..\luaUtil.h"
 
+#define DBG_SER 1
+
+#if DBG_SER
+int tab = 0;
+void _indent() {
+    for (int i=0; i<tab; i++) {
+        Serial.print("\t");
+    }
+}
+#endif
+
 size_t my_strlen_s(const char* buf, int max) {
     for (size_t i = 0; i < max; i++){
         if (*buf == 0x0) {
@@ -134,16 +145,21 @@ bool packet::deserialize(lua_State* L) {
                 if (!isKey) lua_settable(L, -3);
                 break;
             case packet_stamp::number:
+            {
 #if DBG_SER
                 Serial.println("\t- packet_stamp::number");
 #endif
-                // todo: copy eight bytes
-                lua_pushnumber(L, (double)buf[i]);
-                i += sizeof(double);
+                i++;
+                double d = 0.0f;
+                memcpy(&d, &buf[i], sizeof(double));
+
+                lua_pushnumber(L, d);
+                i += sizeof(double) - 1;
 #if DBG_SER
                 luaUtil::printLuaStack(L);
 #endif
                 if (!isKey) lua_settable(L, -3);
+            }
                 break;
             case packet_stamp::string:
             {
@@ -245,10 +261,10 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
     // 3 (-1): param1.values[0]
     while (lua_next(L, idx) != 0) {
 #if DBG_SER
-        indent();
+        _indent();
         Serial.println("packet::serialize: nextloop");
 
-        indent();  
+        _indent();  
         luaUtil::printLuaStack(L);
 #endif
         if (pushLuaValue(L, -2, true)) { // key
@@ -257,7 +273,7 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
             int valueT = lua_type(L, -1);
             if (valueT == LUA_TTABLE) {
 #if DBG_SER
-                indent();
+                _indent();
                 Serial.println("{");
                 tab++;
 #endif
@@ -273,12 +289,12 @@ bool packet::processLuaTable(lua_State* L, int idx, int depth) {
                 }
 #if DBG_SER
                 tab--;
-                indent();
+                _indent();
                 Serial.println("}");
 #endif
             } else {
 #if DBG_SER
-                indent();
+                _indent();
 #endif
             }
         }
@@ -317,7 +333,7 @@ bool packet::pushLuaValue(lua_State* L, int idx, bool isKey) {
             pushNumber(lua_tonumber(L, idx));
             break;
         case LUA_TBOOLEAN:
-            pushNumber(lua_toboolean(L, idx));
+            pushBoolean(lua_toboolean(L, idx));
             break;
         case LUA_TSTRING:
             pushString(lua_tostring(L, idx)); // <- this is cursed -- might be brittle...
