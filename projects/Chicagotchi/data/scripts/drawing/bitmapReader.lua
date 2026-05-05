@@ -27,8 +27,9 @@ end
 --load the bmp pixels to memory to be drawn back faster
 function readBMP(fileName, pallet)
 	local bitmap={}
+  
 	--myrtle.println("reading bmp")
-	local f = io.open("/littlefs/"..fileName, "rb")
+	local f = io.open("/littlefs/sprites/"..fileName, "rb")
 	
 	--myrtle.println("")
     local block = 1

@@ -229,7 +229,7 @@ void testFileIO(fs::FS &fs, const char * path){
             if ((i++ & 0x001F) == 0x001F){
               Serial.print(".");
             }
-            len -= toRead;
+            len -= toRead;c:\Users\dwayn\Documents\Arduino\Chicagotchi\libraries\LittleFS_esp32\src\LITTLEFS.h
         }
         Serial.println("");
         end = millis() - start;

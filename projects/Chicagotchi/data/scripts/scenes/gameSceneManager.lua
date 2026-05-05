@@ -17,6 +17,7 @@ function gameSceneManager:setScene(s)
   if(self.currentScene~=nil)then
     if self.currentScene.destroy~=nil then
       self.currentScene:destroy()
+      collectgarbage("collect")
     end
     self.currentScene = nil
   end
@@ -25,7 +26,7 @@ function gameSceneManager:setScene(s)
   self.currentScene = s
   --assert(self.currentScene.initialize)
   self.currentScene:initialize()
-  self.currentScene:update(0)
+  self.currentScene:update()
 end
 
 function gameSceneManager:unloadScreen()
@@ -33,6 +34,7 @@ function gameSceneManager:unloadScreen()
   if(self.currentScene~=nil)then
     if self.currentScene.destroy~=nil then
       self.currentScene:destroy()
+      collectgarbage("collect")
     end
     self.currentScene = nil
   end

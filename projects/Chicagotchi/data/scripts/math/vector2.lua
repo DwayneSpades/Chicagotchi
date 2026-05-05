@@ -54,7 +54,6 @@ vector2.__sub = function(v1,v2)
   return v
 end
 
---the operators with mismatched types don't go both ways so I should add that cuntionality at some point to make them commutative
 vector2.__mul = function(v1,v2)
   local v = vector2.new()
   --allows me to handle multiple data types
@@ -147,13 +146,6 @@ function rotatePoint(pos,deg)
   return vector2.new(pos.x*math.cos(math.rad(deg)) - pos.y*math.sin(math.rad(deg)), pos.x*math.sin(math.rad(deg)) + pos.y*math.cos(math.rad(deg)))
 end
 
---[[
-function vector2:angle(v2)
-  --!!!!returns in radians!!!!
-  local m = math.sqrt(vector2.magnitudeSq(self) * vector2.magnitudeSq(v2))
-  return math.acos(vector2.dot(self,v2) / m)
-end
-]]
 function vector2.perpindicular(v1)
   return vector2.new(v1.y, -v1.x)
 end

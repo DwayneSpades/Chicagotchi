@@ -93,15 +93,50 @@ int lua_drawCircle(lua_State* L)
 	int16_t x = (int16_t)lua_tonumber(L, 1);
   int16_t y = (int16_t)lua_tonumber(L, 2);
   int16_t r = (int16_t)lua_tonumber(L, 3);
-  int16_t num = stoi("0xffff00", nullptr, 16);
+  const char* stuff = lua_tostring(L, 4);
+  uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
 
   //num = (floor(num * (16 - 1) + 0.5)) / (24 - 1);
 	//create the drawable and push into the map
-  canvas.drawCircle(x, y, r, 0xFB94); //.drawCircle(x, y, r, ST77XX_WHITE);
+  canvas.drawCircle(x, y, r, color); //.drawCircle(x, y, r, ST77XX_WHITE);
+  
 	//return the values reutrned in this stack
   return 1;
 }
 
+int lua_drawRectangle(lua_State* L)
+{
+	int16_t x = (int16_t)lua_tonumber(L, 1);
+  int16_t y = (int16_t)lua_tonumber(L, 2);
+  int16_t w = (int16_t)lua_tonumber(L, 3);
+  int16_t h = (int16_t)lua_tonumber(L, 4);
+  const char* stuff = lua_tostring(L, 5);
+  uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
+
+  //num = (floor(num * (16 - 1) + 0.5)) / (24 - 1);
+	//create the drawable and push into the map
+  canvas.drawRect(x, y, w, h, color); //.drawCircle(x, y, r, ST77XX_WHITE);
+  
+	//return the values reutrned in this stack
+  return 1;
+}
+
+int lua_drawLine(lua_State* L)
+{
+	int16_t x = (int16_t)lua_tonumber(L, 1);
+  int16_t y = (int16_t)lua_tonumber(L, 2);
+  int16_t x2 = (int16_t)lua_tonumber(L, 3);
+  int16_t y2 = (int16_t)lua_tonumber(L, 4);
+  const char* stuff = lua_tostring(L, 5);
+  uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
+
+  //num = (floor(num * (16 - 1) + 0.5)) / (24 - 1);
+	//create the drawable and push into the map
+  canvas.drawLine(x, y, x2, y2, color); //.drawCircle(x, y, r, ST77XX_WHITE);
+  
+	//return the values reutrned in this stack
+  return 1;
+}
 //example of a lua wrapper function that returns a value to the lua script. 
 //if you want to compute something in c++ and then give it back to lua script game code do this-> lua_pushnumber(L,num);
 //you can return multiple values too if you repeat the push commands just recieve the numbers in lua with something like: local x,y = myrtleWrapperFunction(input);
@@ -311,8 +346,8 @@ int lua_drawBitmap(lua_State* L)
 
 void custom_memcpy(void* dest, const void* src, int len)
 {
-    char* d = static_cast<char*>(dest);
-    const char* s = static_cast<const char*>(src);
+    //char* d = static_cast<char*>(dest);
+    //const char* s = static_cast<const char*>(src);
     
     for (int i = 0; i < len; ++i)
     {
@@ -394,13 +429,82 @@ int lua_print(lua_State* L)
   return 1;
 }
 
+void _autoRequire(fs::FS &fs, const char * dirname,lua_State* L){
+    tft.printf("Listing directory: %s\r\n", dirname);
+
+    File root = fs.open(dirname);
+    if(!root){
+        tft.println("- failed to open directory");
+        return;
+    }
+    if(!root.isDirectory()){
+        tft.println(" - not a directory");
+        return;
+    }
+
+    File file = root.openNextFile();
+    while(file){
+        if(file.isDirectory()){
+            
+            //tft.print("  DIR : ");
+            //tft.println(file.name());
+            const char* dash = "/scripts/";
+            char newName[50]; 
+            strcpy(newName,dash);
+            strcat(newName,file.name());
+            _autoRequire(fs, newName, L);
+            
+        } else {
+            //run the script file
+            //I'm gonna trust no one is trying to run anything that isn't a .lua
+            const char* dash = "/";
+            char newName[50]; 
+            strcpy(newName,dirname);
+            strcat(newName,dash);
+            strcat(newName,file.name());
+            lua_AutoRequire(L,newName);
+        }
+        file = root.openNextFile();
+    }
+}
+
+int lua_AutoRequire(lua_State* L,const char* filename)
+{
+  //collect file names from all folders and sub folders with lua scripts.
+  const char* fileName = filename;
+  //tft.print("load script: ");
+  //tft.print(filename);
+  //tft.print("\n");
+  
+  //delay(2000);
+
+  const char* fs = "/littlefs";
+  char newName[300]; 
+  strcpy(newName,fs);
+  strcat(newName,fileName);
+
+  //tft.println(newName);
+  //delay(2000);
+
+  if (luaL_dofile(L,newName) != LUA_OK) {
+    tft.println("Lua error: ");
+    tft.println(lua_tostring(L, -1));
+    delay(2000);
+
+    lua_pop(L, 1);
+    lua_close(L);
+    return -1;
+  }
+  return 1;
+}
+
 int lua_require(lua_State* L)
 {
   const char* fileName = lua_tostring(L, 1);
-  tft.println("attempting to load script from funciton");
+  //tft.println("attempting to load script from funciton");
   //delay(2000);
 
-  const char* fs = "/littlefs/";
+  const char* fs = "/littlefs/scripts/";
   char newName[300]; 
   strcpy(newName,fs);
   strcat(newName,fileName);
@@ -491,7 +595,10 @@ void setup(void) {
   tft.setCursor(0, 0);
 
   luaL_openlibs(L);
-  lua_register(L, "drawCircle", lua_drawCircle);
+  lua_register(L, "_drawCircle", lua_drawCircle);
+  lua_register(L, "_drawRectangle", lua_drawRectangle);
+  lua_register(L, "_drawLine", lua_drawLine);
+
   lua_register(L, "createSprite", lua_createSprite);
   lua_register(L, "loadPixel", lua_loadPixel);
   lua_register(L, "drawSprite", lua_drawSprite);
@@ -510,10 +617,16 @@ void setup(void) {
   lua_register(L, "myrtlePrint", lua_print);
   lua_register(L, "myrtleSetTextColor", lua_setTextColor);
 
+
   tft.println("Loaded Lua functions successfully");
   //delay(2000);
 
   //luaL_dostring(L,"package.path = package.path .. ';./?.lua;/littlefs/?.lua'");
+
+  runScript("myrtleAPI.lua");
+  _autoRequire(LittleFS,"/scripts",L);
+  //delay(2000);
+  
   runScript("main.lua");
   tft.println("Loaded Lua scripts successfully");
   delay(2000);
