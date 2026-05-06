@@ -1,7 +1,6 @@
 
 
 engineTime=0;
-
 sinDrive=0
 sx = 0;
 sy = 0;
@@ -54,15 +53,15 @@ function myrtle_load()
   --for dir in io.popen("/littlefs/"):lines() do myrtle.print("log- "..dir.."/n") end
   
 	gatoSprite = readBMP("Gato_Roboto.bmp",myPallet)
-  penguinSprite = readBMP("pengin1.bmp",myPallet)
+  --penguinSprite = readBMP("pengin1.bmp",myPallet)
   groofSprite = readBMP("groof.bmp",myPallet)
-  bugSprite = readBMP("Bug.bmp",myPallet)
-  grombSprite = readBMP("grombles.bmp",myPallet)
-  FlowerSprite = readBMP("Flowerguy_Head.bmp",myPallet)
+  --bugSprite = readBMP("Bug.bmp",myPallet)
+  --grombSprite = readBMP("grombles.bmp",myPallet)
+  --FlowerSprite = readBMP("Flowerguy_Head.bmp",myPallet)
   --astroSprite = readBMP("Chicagotchi_Test_AstronautFella_Combined.bmp",myPallet)
   
   --load scene example
-  gameSceneManager:setScene(scene_1)
+  gameSceneManager:setScene(scene_testGame)
   
   collectgarbage("collect")
 end
@@ -77,11 +76,11 @@ function myrtle_draw()
 	--draw things here
 	
 	--myrtle.drawCircle(32,32,32)
-  
+  myrtle.setTextColor(myPallet[13])
 	myrtle.println('Memory actually used (in kB): '..string.format("%i",collectgarbage('count')) )
   --myrtle.println("engine time: "..engineTime)
-
-	gameSceneManager:draw()
+  gameSceneManager:draw()
+	
   
 end
 

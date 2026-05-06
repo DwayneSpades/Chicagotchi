@@ -32,7 +32,7 @@ function runGarbageCollector()
   garbageThrottle()
   
   local start = engineTime
-  for i = 1, 25 do
+  for i = 1, 10 do
 	  collectgarbage("step",collectionAmount)
 	  if engineTime - start > 0.01 then
 		  break
@@ -45,14 +45,14 @@ end
 function garbageThrottle()
   local garbageCount =  collectgarbage('count')
 
-  if garbageCount > 120 then
-    collectionAmount = 50
-  elseif garbageCount > 100 then
+  if garbageCount > 500 then
     collectionAmount = 25
-  elseif garbageCount > 80 then
-    collectionAmount = 10
-  elseif garbageCount > 60 then 
+  elseif garbageCount > 200 then
+    collectionAmount = 15
+  elseif garbageCount > 100 then
     collectionAmount = 5
+  elseif garbageCount > 60 then 
+    collectionAmount = 2
   else
     collectionAmount = 1
   end

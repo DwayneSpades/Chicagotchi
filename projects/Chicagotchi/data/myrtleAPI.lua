@@ -3,6 +3,8 @@ myrtle={}
 myrtle.drawCircle = _drawCircle
 myrtle.drawRectangle = _drawRectangle
 myrtle.drawLine = _drawLine
+myrtle.drawText = _drawText
+myrtle.setScreenPos = _setScreenPos
 
 myrtle.createSprite = createSprite
 myrtle.loadPixel = loadPixel

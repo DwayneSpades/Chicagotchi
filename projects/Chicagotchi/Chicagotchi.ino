@@ -76,6 +76,8 @@
 
 //~ Slaps
 
+using namespace std;
+
 // Use dedicated hardware SPI pins
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 uint32_t engineTime = 0;
@@ -85,8 +87,21 @@ uint32_t deltaTime = 0;
 float p = 3.1415926;
 
 GFXcanvas16 canvas(240, 135);
+//for screen shake feature
+int16_t screenPosX = 0;
+int16_t screenPosY = 0;
 
-using namespace std;
+int lua_setScreenPos(lua_State* L)
+{
+	int16_t x = (int16_t)lua_tonumber(L, 1);
+  int16_t y = (int16_t)lua_tonumber(L, 2);
+
+  screenPosX = x;
+  screenPosY = y;
+  
+	//return the values reutrned in this stack
+  return 1;
+}
 
 int lua_drawCircle(lua_State* L)
 {
@@ -137,6 +152,20 @@ int lua_drawLine(lua_State* L)
 	//return the values reutrned in this stack
   return 1;
 }
+
+int lua_drawText(lua_State* L)
+{
+  int16_t x = (int16_t)lua_tonumber(L, 1);
+  int16_t y = (int16_t)lua_tonumber(L, 2);
+  const char* stuff = lua_tostring(L, 3);
+
+  
+  canvas.setCursor(x,y);
+  canvas.print(stuff);
+
+  return 1;
+}
+
 //example of a lua wrapper function that returns a value to the lua script. 
 //if you want to compute something in c++ and then give it back to lua script game code do this-> lua_pushnumber(L,num);
 //you can return multiple values too if you repeat the push commands just recieve the numbers in lua with something like: local x,y = myrtleWrapperFunction(input);
@@ -396,12 +425,14 @@ int lua_drawSprite(lua_State* L)
 }
 
 
+
 int lua_println(lua_State* L)
 {
 	const char* stuff = lua_tostring(L, 1);
 
 	//create the drawable and push into the map
   canvas.println(stuff);//.drawCircle(x, y, r, ST77XX_WHITE);
+  
 	//return the values reutrned in this stack
   return 1;
 }
@@ -414,7 +445,7 @@ int lua_setTextColor(lua_State* L)
   //num = (floor(num * (16 - 1) + 0.5)) / (24 - 1);
 
 	//create the drawable and push into the map
-  tft.setTextColor(num);//.drawCircle(x, y, r, ST77XX_WHITE);
+  canvas.setTextColor(num);//.drawCircle(x, y, r, ST77XX_WHITE);
 	//return the values reutrned in this stack
   return 1;
 }
@@ -479,7 +510,7 @@ int lua_AutoRequire(lua_State* L,const char* filename)
   //delay(2000);
 
   const char* fs = "/littlefs";
-  char newName[300]; 
+  char newName[50]; 
   strcpy(newName,fs);
   strcat(newName,fileName);
 
@@ -598,6 +629,8 @@ void setup(void) {
   lua_register(L, "_drawCircle", lua_drawCircle);
   lua_register(L, "_drawRectangle", lua_drawRectangle);
   lua_register(L, "_drawLine", lua_drawLine);
+  lua_register(L, "_drawText", lua_drawText);
+  lua_register(L, "_setScreenPos", lua_setScreenPos);
 
   lua_register(L, "createSprite", lua_createSprite);
   lua_register(L, "loadPixel", lua_loadPixel);
@@ -647,9 +680,6 @@ void setup(void) {
   //delay(4000);
 
   tft.println("ran Game Load successfully");
-  //tft.drawCircle(32, 32, 32, ST77XX_BLUE);
-  
-  delay(2000);
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_WHITE);
 
@@ -686,5 +716,5 @@ void loop() {
   canvas.println(deltaTime);
 
   //tft.drawRGBBitmap(0, 0, _screenBuffer.buffer, canvas.width(), canvas.height());
-  tft.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height());
+  tft.drawRGBBitmap(screenPosX, screenPosY, canvas.getBuffer(), canvas.width(), canvas.height());
 }

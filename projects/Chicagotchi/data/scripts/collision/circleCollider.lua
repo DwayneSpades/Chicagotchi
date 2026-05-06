@@ -5,7 +5,6 @@ function circleCollider.new(pos,r)
   local instance = setmetatable({}, circleCollider)
   
   instance.radius = r or 16
-  instance.collided = false
   instance.position = pos or vector2.new(0,0)
   instance.color = 1
   

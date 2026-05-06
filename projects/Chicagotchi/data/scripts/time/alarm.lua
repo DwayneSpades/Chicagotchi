@@ -18,7 +18,7 @@ end
 
 function alarm:destroy()
   alarmManager:removeAlarm(self.key)
-  --self = nil
+  self = nil
 end
 
 function alarm:checkAlarm()

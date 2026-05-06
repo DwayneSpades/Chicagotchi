@@ -72,6 +72,52 @@ function AABBCollision(rect1,rect2)
   
 end
 
+--returns the penetration amount, collision direction, and
+function AABBCollisionInfo(rect1,rect2)
+  local aMin = rect1:getMin()
+  local aMax = rect1:getMax()
+  local centerRect1 = aMax/2
+  
+  --center closer to the left right up or down side of the otehr rectangle?
+  --[[
+  local lDist = centerRect1.x-rect.position.x
+  local rDist = (rect.position.x+rect.width) - centerRect1.x
+  local uDist = centerRect1.y-rect.position.y
+  local dDist = (rect.position.y+rect.height) - centerRect1.y
+  ]]
+  local bMin = rect2:getMin()
+  local bMax = rect2:getMax()
+  
+  overX =  ((bMin.x <= aMax.x) and (aMin.x <= bMax.x))
+  overY =  ((bMin.y <= aMax.y) and (aMin.y <= bMax.y))
+  
+  local distA = vector2.magnitude(aMin - bMax)
+  local distB = vector2.magnitude(bMin - aMax)
+  local penX = 0
+  local penY = 0
+  
+  local pushOut = vector2.new(0,0)
+  local sidePen = vector2.new(0,0)
+  
+  --determine which one is the cause of  the overlap by checking the shortest overlap
+  if(distA < distB)then
+    --which axis is penetrated the most
+    penX = aMin.x - bMax.x
+    penY = aMin.y - bMax.y
+
+    sidePen = bMax
+    
+  else
+    penX = bMin.x - aMax.x
+    penY = bMin.y - aMax.y
+    
+    sidePen = bMin
+  end
+  local outDir = centerRect1 - sidePen
+  return vector2.new(penX,penY),outDir,sidePen
+  
+end
+
 --a helper function to the line to line collision test
 function triangleArea(p1,p2,p3)
   return (p1.x - p3.x) * (p2.y - p3.y) - (p1.y - p3.y) * (p2.x - p3.x)
@@ -129,6 +175,13 @@ function circleCollision(ob1,ob2)
   return false
 end
 
+--returns the direciton and the perpindicular direction of the collision
+function circleCollisionInfo(ob1,ob2)
+  local dir = vector2.normalized(ob2.position-ob1.position)
+  local perpindicular = vector2.perpindicular(dir)
+  
+  return dir,perpindicular
+end
 
 --returns a boolean stating if the circle and AABB Collider/rectangle given are colliding
 function circleAABBCollision(circle,rect)
@@ -155,5 +208,57 @@ function circleAABBCollision(circle,rect)
   end
   
   return false
+  
+end
+
+---returns the position and direction of the collision
+function circleAABBCollisionInfo(circle,rect)
+  --find the edges to test
+  local posEdge = vector2.new(circle.position.x,circle.position.y)
+  
+  if(circle.position.x < rect.position.x) then
+    posEdge.x = rect.position.x
+  elseif (circle.position.x > (rect.position.x + rect.width)) then
+    posEdge.x = rect.position.x + rect.width
+  end
+  
+  if(circle.position.y < rect.position.y) then
+    posEdge.y = rect.position.y
+  elseif (circle.position.y > (rect.position.y + rect.height)) then
+    posEdge.y = rect.position.y + rect.height
+  end
+  
+  local lDist= circle.position.x-rect.position.x
+  local rDist= (rect.position.x+rect.width) - circle.position.x
+  local uDist= circle.position.y-rect.position.y
+  local dDist= (rect.position.y+rect.height) - circle.position.y
+  
+  local shortest = lDist
+  posEdge = vector2.new(rect.position.x,circle.position.y)
+  local dir = vector2.new(-1,0)
+  
+  if shortest > rDist then
+    shortest = rDist
+    posEdge = vector2.new(rect.position.x+rect.width,circle.position.y)
+    dir = vector2.new(1,0)
+  end
+  
+  if shortest > uDist then
+    shortest = uDist
+    posEdge = vector2.new(circle.position.x,rect.position.y)
+    dir = vector2.new(0,-1)
+  end
+  
+  if shortest > dDist then
+    shortest = dDist
+    posEdge = vector2.new(circle.position.x,rect.position.y+rect.height)
+    dir = vector2.new(0,1)
+  end
+  
+  
+  --local dir = vector2.normalized(circle.position - posEdge)
+  --return collision point and dir
+
+  return posEdge,dir
   
 end
