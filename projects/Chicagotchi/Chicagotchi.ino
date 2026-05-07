@@ -203,16 +203,24 @@ class pixelIsland {
   //store len
 public:
   pixelIsland() = default;
-	pixelIsland(int x, int y);
+	pixelIsland(int _w);
 	pixelIsland operator = (const pixelIsland &ptr);
 	~pixelIsland()=default;
 
-  alignas(16) uint16_t buffer [64];
+  uint16_t *buffer;
   int len = 0 ;
   uint16_t x = 0;
   uint16_t y = 0;
   
 };
+
+pixelIsland::pixelIsland(int _w)
+{
+  buffer = new uint16_t[_w];
+  x = 0;
+  y = 0;
+  len = 0;
+}
 
 //I'm thining we can store these drawn pixels once to some canvas buffer and just display that
 class sprite 
@@ -253,6 +261,8 @@ sprite::sprite(int _w, int _h, int len)
 
   pixels = new uint16_t[len];
   pixelIslands = new pixelIsland[150];
+  for(int i = 0; i < 150; i++)
+    pixelIslands[i].buffer = new uint16_t[_w];
 }
 
 //make an array of pixels to store in the sprite Storage
@@ -294,25 +304,20 @@ int lua_loadPixel(lua_State* L)
 {
   const char* name = lua_tostring(L, 1);
   int index = (int)lua_tonumber(L, 2);
+  
   //replace this with a width call.
   //simply count each row pixel by pixel by incriment the y iterator once the x Iterator reaches 63 and reset to zero
-  int width = 64;
 
   const char* stuff = lua_tostring(L, 3);
   uint16_t color = (uint16_t)stoi(stuff, nullptr, 16);
+  
+  int width = (int)lua_tonumber(L, 4);
 
 	//create the drawable and push into the map
   sprites[name]->pixels[index] = color;
-  
-  xIterator += 1;
-  if (xIterator > width-1)
-  {
-    xIterator = 0;
-    yIterator += 1;
-  }
 
   //if color is not transparent then create a 
-  if (color != 0xea60)
+  if (color != 0xea60 )
   {
     //create island
     if(createIsland == true)
@@ -341,6 +346,17 @@ int lua_loadPixel(lua_State* L)
     //make a new island and reset xIterator
     createIsland = true;
     //tft.println(color);
+  }
+
+  xIterator += 1;
+  if (xIterator > width-1)
+  {
+    xIterator = 0;
+    yIterator += 1;
+    if (createIsland == false)
+    {
+      createIsland = true;
+    }
   }
 
    //.drawCircle(x, y, r, ST77XX_WHITE);

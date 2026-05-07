@@ -52,7 +52,7 @@ function myrtle_load()
   --myrtle.print("hello: "..myrtle.getTime())
   --for dir in io.popen("/littlefs/"):lines() do myrtle.print("log- "..dir.."/n") end
   
-	gatoSprite = readBMP("Gato_Roboto.bmp",myPallet)
+	gatoSprite = readBMP("Myrdle.bmp",myPallet)
   --penguinSprite = readBMP("pengin1.bmp",myPallet)
   groofSprite = readBMP("groof.bmp",myPallet)
   --bugSprite = readBMP("Bug.bmp",myPallet)

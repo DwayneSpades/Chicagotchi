@@ -151,7 +151,7 @@ function readBMP(fileName, pallet)
 	--load bitmap pixel data to cpp side here
 	for i=1,#bitmap do
 		local index = (#bitmap+1) - i
-		myrtle.loadPixel(fileName, i-1, bitmap[index].color)
+		myrtle.loadPixel(fileName, i-1, bitmap[index].color, width)
 	end
 	
   bitmap = nil

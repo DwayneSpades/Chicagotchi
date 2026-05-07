@@ -52,6 +52,7 @@ function scene_testGame.initialize()
     table.insert(players,v)
   end
   
+  endGame = false
   
   --coin power ups
   
@@ -92,36 +93,21 @@ function scene_testGame:update()
         
         screenShake(100)
         
-        
+        if playerPet~=nil and playerPet.health <=0 then
+          playerPet = nil
+        end
         
         if(v.health==0 )then
-          enemies[i]=nil
+          enemies={}
         end
         
       end
     end
   end
   
-  if playerPet~=nil and playerPet.health <=0 then
-    playerPet = nil
-  end
-  
-  if(#enemies<=0)then
-    myrtle.setTextColor(myPallet[8])
-    myrtle.println("Gato Wins")
-    alarm.new(2000,function() gameSceneManager:setScene(scene_testGame)  end)
-  end
-  
-  if playerPet == nil then
-    myrtle.setTextColor(myPallet[5])
-    myrtle.println("Groof Wins")
-    alarm.new(2000,function() gameSceneManager:setScene(scene_testGame)  end)
-  end
-  
 end
 
 function scene_testGame:draw()
-  playerPet:draw()
   
   for i, v in pairs(blocks) do 
     v:draw(8)
@@ -131,7 +117,24 @@ function scene_testGame:draw()
       v:draw()
     end
   end
-
+  
+  if(#enemies<=0) then
+    myrtle.setTextColor(myPallet[8])
+    myrtle.println("Myrdle Wins")
+    if endGame == false then
+      endGame = true
+      alarm.new(2000,function() gameSceneManager:setScene(scene_testGame)  end)
+    end
+  end
+  
+  if playerPet == nil then
+    myrtle.setTextColor(myPallet[5])
+    myrtle.println("Groof Wins")
+    if endGame == false then
+      endGame = true
+      alarm.new(2000,function() gameSceneManager:setScene(scene_testGame)  end)
+    end
+  end
   
 end
 
@@ -146,6 +149,7 @@ function scene_testGame:destroy()
   boundary3=nil
   boundary4=nil
   
+  endGame = nil
 end
 
 function scene_testGame:runCollision(player)
