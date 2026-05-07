@@ -62,6 +62,7 @@ function myrtle_load()
   
   --load scene example
   gameSceneManager:setScene(scene_testGame)
+  --gameSceneManager:setScene(scene_credits)
   
   collectgarbage("collect")
 end
