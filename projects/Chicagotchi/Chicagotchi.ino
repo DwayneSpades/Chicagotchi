@@ -618,6 +618,69 @@ void runScript(const char* fileName)
   }
 }
 
+void printBootReason() {
+  esp_reset_reason_t reason = esp_reset_reason();
+  const char* strReason = "unexpected value";
+  tft.print("RESET REASON: ");
+  Serial.print("RESET REASON: ");
+  switch (reason) {
+    case esp_reset_reason_t::ESP_RST_UNKNOWN:
+      strReason = "UNKNOWN";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_POWERON:
+      strReason = "POWERON";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_SW:
+      strReason = "SOFTWARE";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_PANIC:
+      strReason = "PANIC !!!";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_INT_WDT:
+    case esp_reset_reason_t::ESP_RST_TASK_WDT:
+    case esp_reset_reason_t::ESP_RST_WDT:
+      strReason = "WATCH DOG";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_DEEPSLEEP:
+      strReason = "SLEEP";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_BROWNOUT:
+      strReason = "BROWNOUT!!!";
+    break;
+
+    case esp_reset_reason_t::ESP_RST_SDIO:
+    case esp_reset_reason_t::ESP_RST_USB:
+    case esp_reset_reason_t::ESP_RST_JTAG:
+      strReason = "PERIPHERAL";
+      break;
+
+    case esp_reset_reason_t::ESP_RST_EFUSE:
+      strReason = "EFUSE ERROR";
+      break;
+
+    case esp_reset_reason_t::ESP_RST_PWR_GLITCH:
+      strReason = "POWER GLITCH";
+      break;
+
+    case esp_reset_reason_t::ESP_RST_CPU_LOCKUP:
+      strReason = "CPU LOCKUP";
+      break;
+
+    default:
+      tft.print("unhandled case: ");
+      tft.println(reason);
+      break;
+  }
+  tft.println(strReason);
+  Serial.println(strReason);
+}
+
 #define _NETWORK_ 1
 
 void setup(void) {
@@ -708,68 +771,7 @@ void setup(void) {
     lua_pcall(L, 0, 0, 0);
   }
   
-  
-  //delay(4000);
-  esp_reset_reason_t reason = esp_reset_reason();
-  const char* strReason = "unexpected value";
-  tft.print("RESET REASON: ");
-  Serial.print("RESET REASON: ");
-  switch (reason) {
-    case esp_reset_reason_t::ESP_RST_UNKNOWN:
-      strReason = "UNKNOWN";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_POWERON:
-      strReason = "POWERON";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_SW:
-      strReason = "SOFTWARE";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_PANIC:
-      strReason = "PANIC !!!";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_INT_WDT:
-    case esp_reset_reason_t::ESP_RST_TASK_WDT:
-    case esp_reset_reason_t::ESP_RST_WDT:
-      strReason = "WATCH DOG";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_DEEPSLEEP:
-      strReason = "SLEEP";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_BROWNOUT:
-      strReason = "BROWNOUT!!!";
-    break;
-
-    case esp_reset_reason_t::ESP_RST_SDIO:
-    case esp_reset_reason_t::ESP_RST_USB:
-    case esp_reset_reason_t::ESP_RST_JTAG:
-      strReason = "PERIPHERAL";
-      break;
-
-    case esp_reset_reason_t::ESP_RST_EFUSE:
-      strReason = "EFUSE ERROR";
-      break;
-
-    case esp_reset_reason_t::ESP_RST_PWR_GLITCH:
-      strReason = "POWER GLITCH";
-      break;
-
-    case esp_reset_reason_t::ESP_RST_CPU_LOCKUP:
-      strReason = "CPU LOCKUP";
-      break;
-
-    default:
-      tft.print("unhandled case: ");
-      tft.println(reason);
-      break;
-  }
-  tft.println(strReason);
-  Serial.println(strReason);
+  printBootReason();
   delay(3000);
 
   #if _NETWORK_
