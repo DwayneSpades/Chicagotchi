@@ -3,7 +3,7 @@
 #include <cstring>
 #include <Arduino.h>
 
-#include "..\luaUtil.h"
+#include "../luaUtil.h"
 
 size_t my_strlen_s(const char* buf, int max) {
     for (size_t i = 0; i < max; i++){

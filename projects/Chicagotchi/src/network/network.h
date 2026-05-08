@@ -12,8 +12,8 @@
 #include <string>
 #include <mutex>
 
-#include "..\luaState.h"
-#include "..\luaUtil.h"
+#include "../luaState.h"
+#include "../luaUtil.h"
 #include "packet.h"
 
 namespace network {
