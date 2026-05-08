@@ -38,3 +38,6 @@ myrtle.buttons = {}
 myrtle.buttons.D0 = 0
 myrtle.buttons.D1 = 1
 myrtle.buttons.D2 = 2
+
+myrtle.SCREEN_WIDTH = 240
+myrtle.SCREEN_HEIGHT = 135
