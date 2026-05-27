@@ -53,16 +53,17 @@ function myrtle_load()
   --for dir in io.popen("/littlefs/"):lines() do myrtle.print("log- "..dir.."/n") end
   
 	gatoSprite = readBMP("Myrdle.bmp",myPallet)
-  --penguinSprite = readBMP("pengin1.bmp",myPallet)
-  groofSprite = readBMP("groof.bmp",myPallet)
-  --bugSprite = readBMP("Bug.bmp",myPallet)
-  --grombSprite = readBMP("grombles.bmp",myPallet)
-  --FlowerSprite = readBMP("Flowerguy_Head.bmp",myPallet)
-  --astroSprite = readBMP("Chicagotchi_Test_AstronautFella_Combined.bmp",myPallet)
+  	penguinSprite = readBMP("pengin1.bmp",myPallet)
+  	groofSprite = readBMP("groof.bmp",myPallet)
+  	bugSprite = readBMP("Bug.bmp",myPallet)
+  	--grombSprite = readBMP("grombles.bmp",myPallet)
+  	--FlowerSprite = readBMP("Flowerguy_Head.bmp",myPallet)
+  	--astroSprite = readBMP("Chicagotchi_Test_AstronautFella_Combined.bmp",myPallet)
   
   --load scene example
-  gameSceneManager:setScene(scene_testGame)
-  --gameSceneManager:setScene(scene_credits)
+  gameSceneManager:setScene(scene_luketest)
+  -- gameSceneManager:setScene(scene_testGame)
+  -- gameSceneManager:setScene(scene_credits)
   
   collectgarbage("collect")
 end

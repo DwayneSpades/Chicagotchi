@@ -198,6 +198,13 @@ int lua_sendBitData(lua_State* L)
 //store the line of pixels
 //the length of the island
 //the x,y start of the line segment
+class pisland {
+  uint16_t *buffer; // 2
+  uint8_t len = 0 ; // 4
+  uint8_t x = 0; // 2
+  uint8_t y = 0; // 2 = 16?
+};
+
 class pixelIsland {
   //can be up to 64 spaces long but doesn't have to be...
   //store len
@@ -207,11 +214,10 @@ public:
 	pixelIsland operator = (const pixelIsland &ptr);
 	~pixelIsland()=default;
 
-  uint16_t *buffer;
-  int len = 0 ;
-  uint16_t x = 0;
-  uint16_t y = 0;
-  
+  uint16_t *buffer; // 2
+  int len = 0 ; // 4
+  uint16_t x = 0; // 2
+  uint16_t y = 0; // 2 = 16?
 };
 
 pixelIsland::pixelIsland(int _w)
@@ -288,6 +294,14 @@ int lua_createSprite(lua_State* L)
   yIterator = 0;
   lineIndex = 0;
   islandIndex = -1;
+
+  Serial.printf("sizeof pisland: %u\n", sizeof(pisland));
+  Serial.printf("sizeof pixelisland: %u\n", sizeof(pixelIsland));
+  Serial.print("CREATING A SPRITE: ");
+  Serial.println(name);
+  Serial.printf("Free Heap: %u\n", esp_get_free_heap_size());
+  Serial.printf("Min Heap: %u\n", esp_get_minimum_free_heap_size());
+  Serial.printf("Stack: %u\n", uxTaskGetStackHighWaterMark(NULL) * 4);
 
   return 1;
 }
